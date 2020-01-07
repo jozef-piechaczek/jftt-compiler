@@ -5,7 +5,7 @@ class PypilerLexer(Lexer):
     ignore = ' \t'
     ignore_comment = r'\[(.|\n)*\]'
     ignore_newline = r'\n+'
-    # noinspection PyUnboundLocalVariable
+    # noinspection PyUnboundLocalVariable,PyUnresolvedReferences
     tokens = {
         PIDENTIFIER, NUMBER,
         PLUS, MINUS, TIMES, DIV, MOD,
@@ -62,8 +62,3 @@ class PypilerLexer(Lexer):
         self.index += 1
 
 
-lexer = PypilerLexer()
-while True:
-    text = input()
-    for tok in lexer.tokenize(text):
-        print(tok)
