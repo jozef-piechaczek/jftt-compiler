@@ -19,7 +19,7 @@ class PypilerLexer(Lexer):
     }
 
     PIDENTIFIER = r'[_a-z]+'
-    NUMBER = r'\d+'
+    NUMBER = r'-?\d+'
 
     ENDWHILE = r'ENDWHILE'
     DECLARE = r'DECLARE'
