@@ -10,4 +10,4 @@ class Cmd(enum.Enum):
     IDENTIFIER = 6
     IDENTIFIER_ARRAY = 7
     IDENTIFIER_NEST = 8
-    IDENTIFIER_VALUE = 9
+    EXPR_VAL = 9

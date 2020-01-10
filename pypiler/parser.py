@@ -1,6 +1,6 @@
 from sly import Parser
 from lexer import PypilerLexer
-from code_gen import CodeGenerator, Cmd, Errors
+from code_gen import CodeGenerator, Cmd, Errors, Utils
 
 
 # noinspection PyUnresolvedReferences,PyUnusedLocal
@@ -103,6 +103,7 @@ class PypilerParser(Parser):
     @_('value')
     def expression(self, t):
         print('expression1', end='\n')
+        self.gen_code(Cmd.EXPR_VAL, t.value)
 
     @_('value PLUS value')
     def expression(self, t):
@@ -153,34 +154,28 @@ class PypilerParser(Parser):
     @_('NUMBER')
     def value(self, t):
         print('value1', end='\n')
-        return t.NUMBER
+        return 'NUMBER', t.NUMBER
 
     @_('identifier')
     def value(self, t):
         print('value2', end='\n')
-        elem = t.identifier
-        if elem.value is None:
-            Errors.identifier_not_assigned(elem.name)
-            return None
-        else:
-            ret = elem.value
-            return ret
+        return "IDENTIFIER", t.identifier
 
     # identifier
     @_('PIDENTIFIER')
     def identifier(self, t):
         print('identifier1', end='\n')
-        ret = self.gen_code(Cmd.IDENTIFIER, t.PIDENTIFIER)
-        return ret
+        elem = self.gen_code(Cmd.IDENTIFIER, t.PIDENTIFIER)
+        return "ID_STATIC", elem
 
     @_('PIDENTIFIER LBRACKET PIDENTIFIER RBRACKET')
     def identifier(self, t):
         print('identifier2', end='\n')
-        ret = self.gen_code(Cmd.IDENTIFIER_NEST, (t.PIDENTIFIER0, t.PIDENTIFIER1))
-        return ret
+        elem1, elem2 = self.gen_code(Cmd.IDENTIFIER_NEST, (t.PIDENTIFIER0, t.PIDENTIFIER1))
+        return "ID_DYNAMIC", elem1, elem2
 
     @_('PIDENTIFIER LBRACKET NUMBER RBRACKET')
     def identifier(self, t):
         print('identifier3', end='\n')
-        ret = self.gen_code(Cmd.IDENTIFIER_ARRAY, (t.PIDENTIFIER, t.NUMBER))
-        return ret
+        elem = self.gen_code(Cmd.IDENTIFIER_ARRAY, (t.PIDENTIFIER, t.NUMBER))
+        return "ID_STATIC", elem

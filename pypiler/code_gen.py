@@ -15,18 +15,39 @@ class Errors:
         print(f'ERROR: identifier {name} has no value assigned')
 
 
+class Utils:
+    @staticmethod
+    def gen_value(value):
+        print('LOAD 1')
+        bin_str = bin(value)
+        bin_str = bin_str[len(bin_str)::-1][1:]
+        for char in bin_str:
+            if char == '0':
+                print('SHIFT 1')
+            elif char == '1':
+                print('SHIFT 1')
+                print('INC')
+            else:
+                break
+
+    @staticmethod
+    def load_dyn_variable(elem1, elem2):  # elem1 - n, elem2 - j
+        print(f'LOAD {elem1.offset}')
+        print(f'ADD {elem2.offset}')
+        print(f'STORE 3')
+
+
 class DataElement:
-    def __init__(self, name, offset, value=None):
+    def __init__(self, name, offset):
         self.name = name
         self.offset = offset
-        self.value = value
 
     def __str__(self):
-        return f'name:{self.name} offset:{self.offset} value={self.value}'
+        return f'name:{self.name} offset:{self.offset}'
 
 
 class SymbolTable:
-    __data_offset = 1
+    __data_offset = 10
     __symbols = []  # [n, j, k]
     __data = []  # [(n0, 1), (n1, 2), (j, 3), (k, 4)]
 
@@ -35,8 +56,7 @@ class SymbolTable:
             Errors.declare_err_redefine(name)
         else:
             self.__symbols.append(name)
-            elem = DataElement(name=name, offset=self.__data_offset)
-            self.__data.append(elem)
+            self.__data.append(DataElement(name=name, offset=self.__data_offset))
             self.__data_offset += 1
 
     def put_array(self, name, begin, end):
@@ -44,9 +64,12 @@ class SymbolTable:
             Errors.declare_err_redefine(name)
         else:
             self.__symbols.append(name)
+            self.__data.append(DataElement(name=name, offset=self.__data_offset))
+            Utils.gen_value(self.__data_offset - begin + 1)
+            print(f'STORE {self.__data_offset}')
+            self.__data_offset += 1
             for idx in range(begin, end + 1):
-                elem = DataElement(name=f'{name}{idx}', offset=self.__data_offset)
-                self.__data.append(elem)
+                self.__data.append(DataElement(name=f'{name}{idx}', offset=self.__data_offset))
                 self.__data_offset += 1
 
     def __check_if_exists(self, name):
@@ -63,10 +86,9 @@ class SymbolTable:
         return None
 
 
-# noinspection PyMethodMayBeStatic
+# noinspection PyMethodMayBeStatic,DuplicatedCode
 class CodeGenerator:
     __code_offset = 0
-
     __sym_tab = SymbolTable()
 
     def gen_code(self, code, param):
@@ -78,8 +100,8 @@ class CodeGenerator:
             Cmd.IDENTIFIER: lambda x: self.__get_identifier(x),
             Cmd.IDENTIFIER_ARRAY: lambda x: self.__get_identifier_array(x),
             Cmd.IDENTIFIER_NEST: lambda x: self.__get_identifier_nest(x),
-            Cmd.IDENTIFIER_VALUE: lambda x: self.__get_identifier_value(x),
             Cmd.ASSIGN: lambda x: self.__assign(x),
+            Cmd.EXPR_VAL: lambda x: self.__expr_val(x),
         }[code](param)
 
     def __halt(self, x):
@@ -107,23 +129,27 @@ class CodeGenerator:
             return elem
 
     def __get_identifier_nest(self, x):
-        name1 = x[1]
+        name1 = x[0]
+        name2 = x[1]
         elem1 = self.__sym_tab.get_symbol(name=name1)
+        elem2 = self.__sym_tab.get_symbol(name=name2)
         if elem1 is None:
             Errors.identifier_not_declared(name=name1)
-        else:
-            if elem1.value is None:
-                Errors.identifier_not_assigned(name=name1)
-            else:
-                name2 = f'{x[0]}{elem1.value}'
-                elem2 = self.__sym_tab.get_symbol(name=name2)
-                if elem2 is None:
-                    Errors.identifier_not_declared(name=x[0])
-                else:
-                    return elem2
+            return None
+        if elem2 is None:
+            Errors.identifier_not_declared(name=name2)
+            return None
+        return elem1, elem2
 
-    def __get_identifier_value(self, x):
-        pass
+    def __expr_val(self, x):
+        if x[0] == "NUMBER":
+            Utils.gen_value(int(x[1]))
+        else:
+            if x[1] == 'ID_STATIC':
+                print(f'LOAD {x[2].offset}')
+            else:
+                Utils.load_dyn_variable(x[2], x[3])
+                print(f'LOADI 3')
 
     def __assign(self, x):
         pass
