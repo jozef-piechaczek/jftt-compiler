@@ -7,4 +7,7 @@ class Cmd(enum.Enum):
     DECLARE_ARRAY = 3
     ASSIGN = 4
     IF_ELSE = 5
-    IDENTIFIER1 = 6
+    IDENTIFIER = 6
+    IDENTIFIER_ARRAY = 7
+    IDENTIFIER_NEST = 8
+    IDENTIFIER_VALUE = 9

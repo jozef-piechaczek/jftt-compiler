@@ -1,6 +1,6 @@
 from sly import Parser
 from lexer import PypilerLexer
-from code_gen import CodeGenerator, Cmd
+from code_gen import CodeGenerator, Cmd, Errors
 
 
 # noinspection PyUnresolvedReferences,PyUnusedLocal
@@ -153,20 +153,34 @@ class PypilerParser(Parser):
     @_('NUMBER')
     def value(self, t):
         print('value1', end='\n')
+        return t.NUMBER
 
     @_('identifier')
     def value(self, t):
         print('value2', end='\n')
+        elem = t.identifier
+        if elem.value is None:
+            Errors.identifier_not_assigned(elem.name)
+            return None
+        else:
+            ret = elem.value
+            return ret
 
     # identifier
     @_('PIDENTIFIER')
     def identifier(self, t):
-        print('', end='')
+        print('identifier1', end='\n')
+        ret = self.gen_code(Cmd.IDENTIFIER, t.PIDENTIFIER)
+        return ret
 
     @_('PIDENTIFIER LBRACKET PIDENTIFIER RBRACKET')
     def identifier(self, t):
         print('identifier2', end='\n')
+        ret = self.gen_code(Cmd.IDENTIFIER_NEST, (t.PIDENTIFIER0, t.PIDENTIFIER1))
+        return ret
 
     @_('PIDENTIFIER LBRACKET NUMBER RBRACKET')
     def identifier(self, t):
         print('identifier3', end='\n')
+        ret = self.gen_code(Cmd.IDENTIFIER_ARRAY, (t.PIDENTIFIER, t.NUMBER))
+        return ret
