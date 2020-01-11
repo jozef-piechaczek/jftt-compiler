@@ -20,7 +20,7 @@ class Utils:
     def gen_value(value):
         print('LOAD 1')
         bin_str = bin(value)
-        bin_str = bin_str[len(bin_str)::-1][1:]
+        bin_str = bin_str[3:]
         for char in bin_str:
             if char == '0':
                 print('SHIFT 1')
@@ -102,6 +102,8 @@ class CodeGenerator:
             Cmd.IDENTIFIER_NEST: lambda x: self.__get_identifier_nest(x),
             Cmd.ASSIGN: lambda x: self.__assign(x),
             Cmd.EXPR_VAL: lambda x: self.__expr_val(x),
+            Cmd.EXPR_PLUS: lambda x: self.__expr_plus(x),
+            Cmd.EXPR_MINUS: lambda x: self.__expr_minus(x),
         }[code](param)
 
     def __halt(self, x):
@@ -111,7 +113,7 @@ class CodeGenerator:
         self.__sym_tab.put_symbol(name=x)
 
     def __declare_array(self, x):
-        self.__sym_tab.put_array(name=x[0], begin=x[1], end=x[2])
+        self.__sym_tab.put_array(name=x[0], begin=int(x[1]), end=int(x[2]))
 
     def __get_identifier(self, x):
         elem = self.__sym_tab.get_symbol(name=x)
@@ -145,11 +147,30 @@ class CodeGenerator:
         if x[0] == "NUMBER":
             Utils.gen_value(int(x[1]))
         else:
-            if x[1] == 'ID_STATIC':
+            if x[1][0] == 'ID_STATIC':
                 print(f'LOAD {x[2].offset}')
             else:
-                Utils.load_dyn_variable(x[2], x[3])
+                Utils.load_dyn_variable(x[1][1], x[1][2])
                 print(f'LOADI 3')
 
     def __assign(self, x):
-        pass
+        if x[0] == "ID_STATIC":
+            print(f'STORE {x[1].offset}')
+        else:
+            print(f'STORE 4')
+            Utils.load_dyn_variable(x[1], x[2])
+            print(f'LOAD 4')
+            print(f'STOREI 3')
+
+    def __expr_plus(self, x):
+        self.__expr_val(x[1])
+        print('STORE 2')
+        self.__expr_val(x[0])
+        print('ADD 2')
+
+    def __expr_minus(self, x):
+        self.__expr_val(x[1])
+        print('STORE 2')
+        self.__expr_val(x[0])
+        print('SUB 2')
+
