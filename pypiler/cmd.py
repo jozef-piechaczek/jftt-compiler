@@ -13,3 +13,6 @@ class Cmd(enum.Enum):
     EXPR_VAL = 9
     EXPR_PLUS = 10
     EXPR_MINUS = 11
+    READ = 12
+    WRITE = 13
+

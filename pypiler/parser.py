@@ -8,7 +8,9 @@ class PypilerParser(Parser):
     # for parser
     tokens = PypilerLexer.tokens
     start = 'program'
-    debug_mode = False
+
+    debug_mode = True
+    compile_mode = False
 
     precedence = (
         ('left', PLUS, MINUS),
@@ -19,7 +21,8 @@ class PypilerParser(Parser):
     code_gen = CodeGenerator()
 
     def gen_code(self, code, param):
-        return self.code_gen.gen_code(code, param)
+        if self.compile_mode:
+            return self.code_gen.gen_code(code, param)
 
     # **************** RULES ****************
     # program
@@ -112,11 +115,13 @@ class PypilerParser(Parser):
     def command(self, t):
         if self.debug_mode:
             print('command8', end='\n')
+        self.gen_code(Cmd.READ, t.identifier)
 
     @_('WRITE value SEMICOLON')
     def command(self, t):
         if self.debug_mode:
             print('command9', end='\n')
+        self.gen_code(Cmd.WRITE, t.value)
 
     # expression
     @_('value')

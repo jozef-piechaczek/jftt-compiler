@@ -17,24 +17,24 @@ class Errors:
 
 class Utils:
     @staticmethod
-    def gen_value(value):
-        print('LOAD 1')
+    def gen_value(code_list, value):
+        code_list.push(('LOAD', 1))
         bin_str = bin(value)
         bin_str = bin_str[3:]
         for char in bin_str:
             if char == '0':
-                print('SHIFT 1')
+                code_list.push(('SHIFT', 1))
             elif char == '1':
-                print('SHIFT 1')
-                print('INC')
+                code_list.push(('SHIFT', 1))
+                code_list.push(('INC', None))
             else:
                 break
 
     @staticmethod
-    def load_dyn_variable(elem1, elem2):  # elem1 - n, elem2 - j
-        print(f'LOAD {elem1.offset}')
-        print(f'ADD {elem2.offset}')
-        print(f'STORE 3')
+    def load_dyn_variable(code_list, elem1, elem2):  # elem1 - n, elem2 - j
+        code_list.push(('LOAD', elem1.offset))
+        code_list.push(('ADD', elem2.offset))
+        code_list.push(('STORE', 3))
 
 
 class DataElement:
@@ -44,6 +44,24 @@ class DataElement:
 
     def __str__(self):
         return f'name:{self.name} offset:{self.offset}'
+
+
+class CodeList:
+    __codes = []
+
+    def push(self, code):
+        self.__codes.append(code)
+
+    def pop(self):
+        self.__codes.pop()
+
+    def print_all(self):
+        for code in self.__codes:
+            if code[1] is not None:
+                print(f'{code[0]} {code[1]}')
+            else:
+                print(f'{code[0]}')
+        self.__codes.clear()
 
 
 class SymbolTable:
@@ -59,14 +77,14 @@ class SymbolTable:
             self.__data.append(DataElement(name=name, offset=self.__data_offset))
             self.__data_offset += 1
 
-    def put_array(self, name, begin, end):
+    def put_array(self, code_list, name, begin, end):
         if self.__check_if_exists(name):
             Errors.declare_err_redefine(name)
         else:
             self.__symbols.append(name)
             self.__data.append(DataElement(name=name, offset=self.__data_offset))
-            Utils.gen_value(self.__data_offset - begin + 1)
-            print(f'STORE {self.__data_offset}')
+            Utils.gen_value(code_list, self.__data_offset - begin + 1)
+            code_list.push(('STORE', self.__data_offset))
             self.__data_offset += 1
             for idx in range(begin, end + 1):
                 self.__data.append(DataElement(name=f'{name}{idx}', offset=self.__data_offset))
@@ -90,6 +108,7 @@ class SymbolTable:
 class CodeGenerator:
     __code_offset = 0
     __sym_tab = SymbolTable()
+    __code_list = CodeList()
 
     def gen_code(self, code, param):
         # noinspection PyStatementEffect
@@ -104,16 +123,23 @@ class CodeGenerator:
             Cmd.EXPR_VAL: lambda x: self.__expr_val(x),
             Cmd.EXPR_PLUS: lambda x: self.__expr_plus(x),
             Cmd.EXPR_MINUS: lambda x: self.__expr_minus(x),
+            Cmd.WRITE: lambda x: self.__write(x),
+            Cmd.READ: lambda x: self.__read(x),
         }[code](param)
 
+    def __push_code(self, x):
+        self.__code_offset += 1
+        self.__code_list.push(x)
+
     def __halt(self, x):
-        print("HALT")
+        self.__push_code(("HALT", None))
+        self.__code_list.print_all()
 
     def __declare(self, x):
         self.__sym_tab.put_symbol(name=x)
 
     def __declare_array(self, x):
-        self.__sym_tab.put_array(name=x[0], begin=int(x[1]), end=int(x[2]))
+        self.__sym_tab.put_array(code_list=self.__code_list, name=x[0], begin=int(x[1]), end=int(x[2]))
 
     def __get_identifier(self, x):
         elem = self.__sym_tab.get_symbol(name=x)
@@ -145,32 +171,44 @@ class CodeGenerator:
 
     def __expr_val(self, x):
         if x[0] == "NUMBER":
-            Utils.gen_value(int(x[1]))
+            Utils.gen_value(self.__code_list, int(x[1]))
         else:
             if x[1][0] == 'ID_STATIC':
-                print(f'LOAD {x[2].offset}')
+                self.__code_list.push(('LOAD', x[1][1].offset))
             else:
-                Utils.load_dyn_variable(x[1][1], x[1][2])
-                print(f'LOADI 3')
+                Utils.load_dyn_variable(code_list=self.__code_list, elem1=x[1][1], elem2=x[1][2])
+                self.__code_list.push(('LOADI', 3))
 
     def __assign(self, x):
         if x[0] == "ID_STATIC":
-            print(f'STORE {x[1].offset}')
+            self.__code_list.push(('STORE', x[1].offset))
         else:
-            print(f'STORE 4')
-            Utils.load_dyn_variable(x[1], x[2])
-            print(f'LOAD 4')
-            print(f'STOREI 3')
+            self.__code_list.push(('STORE', 4))
+            Utils.load_dyn_variable(code_list=self.__code_list, elem1=x[1], elem2=x[2])
+            self.__code_list.push(('LOAD', 4))
+            self.__code_list.push(('STOREI', 3))
 
     def __expr_plus(self, x):
         self.__expr_val(x[1])
-        print('STORE 2')
+        self.__code_list.push(('STORE', 2))
         self.__expr_val(x[0])
-        print('ADD 2')
+        self.__code_list.push(('ADD', 2))
 
     def __expr_minus(self, x):
         self.__expr_val(x[1])
-        print('STORE 2')
+        self.__code_list.push(('STORE', 2))
         self.__expr_val(x[0])
-        print('SUB 2')
+        self.__code_list.push(('SUB', 2))
 
+    def __write(self, x):
+        self.__expr_val(x)
+        self.__code_list.push(('PUT', None))
+
+    def __read(self, x):
+        if x[0] == "ID_STATIC":
+            self.__code_list.push(('GET', None))
+            self.__code_list.push(('STORE', x[1].offset))
+        else:
+            Utils.load_dyn_variable(code_list=self.__code_list, elem1=x[1], elem2=x[2])
+            self.__code_list.push(('GET', None))
+            self.__code_list.push(('STOREI', 3))
