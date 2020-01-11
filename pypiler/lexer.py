@@ -61,4 +61,8 @@ class PypilerLexer(Lexer):
         print(f'Illegal character {t.value[0]}')
         self.index += 1
 
+    def ignore_newline(self, t):
+        self.lineno += t.value.count('\n')
+
+
 

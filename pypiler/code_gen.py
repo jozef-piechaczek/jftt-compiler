@@ -15,26 +15,30 @@ class Errors:
         print(f'ERROR: identifier {name} has no value assigned')
 
 
+# noinspection PyListCreation
 class Utils:
     @staticmethod
-    def gen_value(code_list, value):
-        code_list.push(('LOAD', 1))
+    def gen_value(value):
+        codes = []
+        codes.append(Code('LOAD', 1))
         bin_str = bin(value)
         bin_str = bin_str[3:]
         for char in bin_str:
             if char == '0':
-                code_list.push(('SHIFT', 1))
+                codes.append(Code('SHIFT', 1))
             elif char == '1':
-                code_list.push(('SHIFT', 1))
-                code_list.push(('INC', None))
+                codes.append(Code('SHIFT', 1))
+                codes.append(Code('INC'))
             else:
-                break
+                raise Exception('incorrect value in bit string')
+        return codes
 
     @staticmethod
-    def load_dyn_variable(code_list, elem1, elem2):  # elem1 - n, elem2 - j
-        code_list.push(('LOAD', elem1.offset))
-        code_list.push(('ADD', elem2.offset))
-        code_list.push(('STORE', 3))
+    def load_dyn_variable(elem1, elem2):  # elem1 - n, elem2 - j
+        codes = []
+        codes.append(Code('LOAD', elem1.offset))
+        codes.append(Code('ADD', elem2.offset))
+        return codes
 
 
 class DataElement:
@@ -46,61 +50,60 @@ class DataElement:
         return f'name:{self.name} offset:{self.offset}'
 
 
-class CodeList:
-    __codes = []
+class Code:
+    def __init__(self, name, offset=None, label=None):
+        self.name = name
+        self.offset = offset
+        self.label = label
 
-    def push(self, code):
-        self.__codes.append(code)
+    def __str__(self):
+        return f'{self.name} {self.offset} {self.label}'
 
-    def pop(self):
-        self.__codes.pop()
-
-    def print_all(self):
-        for code in self.__codes:
-            if code[1] is not None:
-                print(f'{code[0]} {code[1]}')
-            else:
-                print(f'{code[0]}')
-        self.__codes.clear()
+    def code_str(self):
+        ret = self.name
+        if self.offset is not None:
+            ret += f' {self.offset}'
+        if self.label is not None:
+            ret += f' {self.label}'
+        return ret
 
 
 class SymbolTable:
     __data_offset = 10
-    __symbols = []  # [n, j, k]
     __data = []  # [(n0, 1), (n1, 2), (j, 3), (k, 4)]
 
     def put_symbol(self, name):
         if self.__check_if_exists(name):
             Errors.declare_err_redefine(name)
         else:
-            self.__symbols.append(name)
-            self.__data.append(DataElement(name=name, offset=self.__data_offset))
+            self.__data.append(DataElement(name, self.__data_offset))
             self.__data_offset += 1
 
-    def put_array(self, code_list, name, begin, end):
+    def put_array(self, name, begin, end):
         if self.__check_if_exists(name):
             Errors.declare_err_redefine(name)
+            return []
         else:
-            self.__symbols.append(name)
-            self.__data.append(DataElement(name=name, offset=self.__data_offset))
-            Utils.gen_value(code_list, self.__data_offset - begin + 1)
-            code_list.push(('STORE', self.__data_offset))
+            self.__data.append(DataElement(name, self.__data_offset))
+            codes = Utils.gen_value(self.__data_offset - begin + 1)
+            codes.append(Code('STORE', self.__data_offset))
             self.__data_offset += 1
             for idx in range(begin, end + 1):
                 self.__data.append(DataElement(name=f'{name}{idx}', offset=self.__data_offset))
                 self.__data_offset += 1
+            return codes
 
     def __check_if_exists(self, name):
-        for symbol in self.__symbols:
-            if symbol == name:
+        for elem in self.__data:
+            if elem.name == name:
                 return True
         return False
 
-    def get_symbol(self, name, idx=None):
-        search_name = name + ("" if idx is None else str(idx))
-        for d in self.__data:
-            if d.name == search_name:
-                return d
+    def get_symbol(self, name):
+        for elem in self.__data:
+            if elem.name == name:
+                return elem
+        Errors.identifier_not_declared(name)
         return None
 
 
@@ -108,122 +111,154 @@ class SymbolTable:
 class CodeGenerator:
     __code_offset = 0
     __sym_tab = SymbolTable()
-    __code_list = CodeList()
 
     def gen_code(self, code, param):
         # noinspection PyStatementEffect
         return {
             Cmd.HALT: lambda x: self.__halt(x),
-            Cmd.DECLARE: lambda x: self.__declare(x),
+            Cmd.DECLARE_ID: lambda x: self.__declare(x),
             Cmd.DECLARE_ARRAY: lambda x: self.__declare_array(x),
-            Cmd.IDENTIFIER: lambda x: self.__get_identifier(x),
-            Cmd.IDENTIFIER_ARRAY: lambda x: self.__get_identifier_array(x),
-            Cmd.IDENTIFIER_NEST: lambda x: self.__get_identifier_nest(x),
-            Cmd.ASSIGN: lambda x: self.__assign(x),
+            Cmd.DECLARE_D_ID: lambda x: self.__declare_d(x),
+            Cmd.DECLARE_D_ARRAY: lambda x: self.__declare_d_array(x),
+            Cmd.IDENTIFIER: lambda x: self.__identifier(x),
+            Cmd.IDENTIFIER_ARRAY: lambda x: self.__identifier_array(x),
+            Cmd.IDENTIFIER_NEST: lambda x: self.__identifier_nest(x),
+            Cmd.VAL_ID: lambda x: self.__value_identifier(x),
+            Cmd.VAL_NUM: lambda x: self.__value_number(x),
+            Cmd.CMD_ASSIGN: lambda x: self.__cmd_assign(x),
             Cmd.EXPR_VAL: lambda x: self.__expr_val(x),
             Cmd.EXPR_PLUS: lambda x: self.__expr_plus(x),
             Cmd.EXPR_MINUS: lambda x: self.__expr_minus(x),
-            Cmd.WRITE: lambda x: self.__write(x),
-            Cmd.READ: lambda x: self.__read(x),
-            Cmd.EQ: lambda x: self.__eq(x),
-            Cmd.NEQ: lambda x: self.__neq(x),
-            Cmd.GE: lambda x: self.__ge(x),
-            Cmd.GEQ: lambda x: self.__geq(x),
-            Cmd.LE: lambda x: self.__le(x),
-            Cmd.LEQ: lambda x: self.__leq(x),
+            Cmd.CMD_WRITE: lambda x: self.__cmd_write(x),
+            Cmd.CMD_READ: lambda x: self.__cmd_read(x),
+            Cmd.COND_EQ: lambda x: self.__eq(x),
+            Cmd.COND_NEQ: lambda x: self.__cond_neq(x),
+            Cmd.COND_GE: lambda x: self.__ge(x),
+            Cmd.COND_GEQ: lambda x: self.__geq(x),
+            Cmd.COND_LE: lambda x: self.__le(x),
+            Cmd.COND_LEQ: lambda x: self.__leq(x),
+            Cmd.CMDS_CMDS: lambda x: self.__cmds_cmds(x),
+            Cmd.CMDS_CMD: lambda x: self.__cmds_cmd(x),
         }[code](param)
-
-    def __push_code(self, x):
-        self.__code_offset += 1
-        self.__code_list.push(x)
 
     # noinspection PyUnusedLocal
     def __halt(self, x):
-        self.__push_code(("HALT", None))
-        self.__code_list.print_all()
+        if x[0] is not None:
+            for code in x[0]:
+                print(code.code_str())
+            for code in x[1]:
+                print(code.code_str())
+        print('HALT')
 
     def __declare(self, x):
         self.__sym_tab.put_symbol(name=x)
+        return []
 
     def __declare_array(self, x):
-        self.__sym_tab.put_array(code_list=self.__code_list, name=x[0], begin=int(x[1]), end=int(x[2]))
+        (name, begin, end) = x
+        code_list = self.__sym_tab.put_array(name=name, begin=begin, end=end)
+        return code_list
 
-    def __get_identifier(self, x):
-        elem = self.__sym_tab.get_symbol(name=x)
-        if elem is None:
-            Errors.identifier_not_declared(name=x)
+    def __declare_d(self, x):
+        (declarations, pidentifier) = x
+        self.__sym_tab.put_symbol(name=pidentifier)
+        return declarations
+
+    def __declare_d_array(self, x):
+        (declarations, name, begin, end) = x
+        code_list = self.__sym_tab.put_array(name=name, begin=begin, end=end)
+        return declarations + code_list
+
+    def __identifier(self, x):
+        elem = self.__sym_tab.get_symbol(x)
+        return "STATIC", elem
+
+    def __identifier_array(self, x):
+        (name, idx) = x
+        elem = self.__sym_tab.get_symbol(f'{name}{idx}')
+        return "STATIC", elem
+
+    def __identifier_nest(self, x):
+        (name1, name2) = x
+        elem1 = self.__sym_tab.get_symbol(name1)
+        elem2 = self.__sym_tab.get_symbol(name2)
+        return "DYNAMIC", elem1, elem2
+
+    def __value_identifier(self, x):
+        codes = []
+        if x[0] == "STATIC":
+            codes.append(Code('LOAD', x[1].offset))
+        elif x[0] == "DYNAMIC":
+            get_addr = Utils.load_dyn_variable(x[1], x[2])
+            codes += get_addr
+            codes.append(Code('STORE', 3))
+            codes.append(Code('LOADI', 3))
         else:
-            return elem
+            raise Exception('incorrect identifier type')
+        return codes
 
-    def __get_identifier_array(self, x):
-        name = f'{x[0]}{x[1]}'
-        elem = self.__sym_tab.get_symbol(name=name)
-        if elem is None:
-            Errors.identifier_not_declared(name=x[0])
-        else:
-            return elem
-
-    def __get_identifier_nest(self, x):
-        name1 = x[0]
-        name2 = x[1]
-        elem1 = self.__sym_tab.get_symbol(name=name1)
-        elem2 = self.__sym_tab.get_symbol(name=name2)
-        if elem1 is None:
-            Errors.identifier_not_declared(name=name1)
-            return None
-        if elem2 is None:
-            Errors.identifier_not_declared(name=name2)
-            return None
-        return elem1, elem2
+    def __value_number(self, x):
+        codes = Utils.gen_value(x)
+        return codes
 
     def __expr_val(self, x):
-        if x[0] == "NUMBER":
-            Utils.gen_value(self.__code_list, int(x[1]))
-        else:
-            if x[1][0] == 'ID_STATIC':
-                self.__code_list.push(('LOAD', x[1][1].offset))
-            else:
-                Utils.load_dyn_variable(code_list=self.__code_list, elem1=x[1][1], elem2=x[1][2])
-                self.__code_list.push(('LOADI', 3))
-
-    def __assign(self, x):
-        if x[0] == "ID_STATIC":
-            self.__code_list.push(('STORE', x[1].offset))
-        else:
-            self.__code_list.push(('STORE', 4))
-            Utils.load_dyn_variable(code_list=self.__code_list, elem1=x[1], elem2=x[2])
-            self.__code_list.push(('LOAD', 4))
-            self.__code_list.push(('STOREI', 3))
+        return x
 
     def __expr_plus(self, x):
-        self.__expr_val(x[1])
-        self.__code_list.push(('STORE', 2))
-        self.__expr_val(x[0])
-        self.__code_list.push(('ADD', 2))
+        (value0, value1) = x
+        codes = []
+        codes += value1
+        codes.append(Code('STORE', 2))
+        codes += value0
+        codes.append(Code('ADD', 2))
+        return codes
 
     def __expr_minus(self, x):
-        self.__expr_val(x[1])
-        self.__code_list.push(('STORE', 2))
-        self.__expr_val(x[0])
-        self.__code_list.push(('SUB', 2))
+        (value0, value1) = x
+        codes = []
+        codes += value1
+        codes.append(Code('STORE', 2))
+        codes += value0
+        codes.append(Code('SUB', 2))
+        return codes
 
-    def __write(self, x):
-        self.__expr_val(x)
-        self.__code_list.push(('PUT', None))
-
-    def __read(self, x):
-        if x[0] == "ID_STATIC":
-            self.__code_list.push(('GET', None))
-            self.__code_list.push(('STORE', x[1].offset))
+    def __cmd_assign(self, x):
+        codes = []
+        (identifier, expr) = x
+        if identifier[0] == "STATIC":
+            codes += expr
+            codes.append(Code('STORE', identifier[1].offset))
+        elif identifier[0] == "DYNAMIC":
+            get_addr = Utils.load_dyn_variable(identifier[1], identifier[2])
+            get_addr.append(Code('STORE', 3))
+            codes += get_addr
+            codes += expr
+            codes.append(Code('STOREI', 3))
         else:
-            Utils.load_dyn_variable(code_list=self.__code_list, elem1=x[1], elem2=x[2])
-            self.__code_list.push(('GET', None))
-            self.__code_list.push(('STOREI', 3))
+            raise Exception('incorrect identifier type')
+        return codes
+
+    def __cmds_cmds(self, x):
+        (commands, command) = x
+        return commands + command
+
+    def __cmds_cmd(self, x):
+        return x
+
+    def __cmd_read(self, x):
+        return self.__cmd_assign((x, [Code('GET')]))
+
+    def __cmd_write(self, x):
+        value = x
+        codes = value
+        codes.append(Code('PUT'))
+        return codes
+
+    def __cond_neq(self, x):
+        codes = self.__expr_minus(x)
+        codes.append(Code('JZERO'))
 
     def __eq(self, x):
-        pass
-
-    def __neq(self, x):
         pass
 
     def __ge(self, x):

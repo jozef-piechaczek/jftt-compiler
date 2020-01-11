@@ -9,8 +9,8 @@ class PypilerParser(Parser):
     tokens = PypilerLexer.tokens
     start = 'program'
 
-    debug_mode = True
-    compile_mode = False
+    debug_mode = False
+    compile_mode = True
 
     precedence = (
         ('left', PLUS, MINUS),
@@ -30,56 +30,58 @@ class PypilerParser(Parser):
     def program(self, t):  # halt program
         if self.debug_mode:
             print('program1', end='\n')
-        self.gen_code(Cmd.HALT, ())
+        self.gen_code(Cmd.HALT, (t.declarations, t.commands))
 
     @_('BEGIN commands END')
     def program(self, t):  # halt program
         if self.debug_mode:
             print('program2', end='\n')
-        self.gen_code(Cmd.HALT, ())
+        self.gen_code(Cmd.HALT, (t.commands, None))
 
     # declarations
     @_('declarations COMMA PIDENTIFIER')
     def declarations(self, t):  # declare pidentifier
         if self.debug_mode:
             print('declarations3', end='\n')
-        self.gen_code(Cmd.DECLARE, t.PIDENTIFIER)
+        return self.gen_code(Cmd.DECLARE_D_ID, (t.declarations, t.PIDENTIFIER))
 
     @_('declarations COMMA PIDENTIFIER LBRACKET NUMBER COLON NUMBER RBRACKET')
     def declarations(self, t):  # declare array
         if self.debug_mode:
             print('declarations2', end='\n')
-        self.gen_code(Cmd.DECLARE_ARRAY, (t.PIDENTIFIER, t.NUMBER0, t.NUMBER1))
+        return self.gen_code(Cmd.DECLARE_D_ARRAY, (t.declarations, t.PIDENTIFIER, int(t.NUMBER0), int(t.NUMBER1)))
 
     @_('PIDENTIFIER')
     def declarations(self, t):  # declare pidentifier
         if self.debug_mode:
             print('declarations3', end='\n')
-        self.gen_code(Cmd.DECLARE, t.PIDENTIFIER)
+        return self.gen_code(Cmd.DECLARE_ID, t.PIDENTIFIER)
 
     @_('PIDENTIFIER LBRACKET NUMBER COLON NUMBER RBRACKET')
     def declarations(self, t):  # declare array
         if self.debug_mode:
             print('declarations4', end='\n')
-        self.gen_code(Cmd.DECLARE_ARRAY, (t.PIDENTIFIER, int(t.NUMBER0), int(t.NUMBER1)))
+        return self.gen_code(Cmd.DECLARE_ARRAY, (t.PIDENTIFIER, int(t.NUMBER0), int(t.NUMBER1)))
 
     # commands
     @_('commands command')
     def commands(self, t):
         if self.debug_mode:
             print('commands1', end='\n')
+        return self.gen_code(Cmd.CMDS_CMDS, (t.commands, t.command))
 
     @_('command')
     def commands(self, t):
         if self.debug_mode:
             print('commands2', end='\n')
+        return self.gen_code(Cmd.CMDS_CMD, t.command)
 
     # command
     @_('identifier ASSIGN expression SEMICOLON')
     def command(self, t):  # assign
         if self.debug_mode:
             print('command1', end='\n')
-        self.gen_code(Cmd.ASSIGN, t.identifier)
+        return self.gen_code(Cmd.CMD_ASSIGN, (t.identifier, t.expression))
 
     @_('IF condition THEN commands ELSE commands ENDIF')
     def command(self, t):
@@ -115,32 +117,32 @@ class PypilerParser(Parser):
     def command(self, t):
         if self.debug_mode:
             print('command8', end='\n')
-        self.gen_code(Cmd.READ, t.identifier)
+        return self.gen_code(Cmd.CMD_READ, t.identifier)
 
     @_('WRITE value SEMICOLON')
     def command(self, t):
         if self.debug_mode:
             print('command9', end='\n')
-        self.gen_code(Cmd.WRITE, t.value)
+        return self.gen_code(Cmd.CMD_WRITE, t.value)
 
     # expression
     @_('value')
     def expression(self, t):
         if self.debug_mode:
             print('expression1', end='\n')
-        self.gen_code(Cmd.EXPR_VAL, t.value)
+        return self.gen_code(Cmd.EXPR_VAL, t.value)
 
     @_('value PLUS value')
     def expression(self, t):
         if self.debug_mode:
             print('expression2', end='\n')
-        self.gen_code(Cmd.EXPR_PLUS, (t.value0, t.value1))
+        return self.gen_code(Cmd.EXPR_PLUS, (t.value0, t.value1))
 
     @_('value MINUS value')
     def expression(self, t):
         if self.debug_mode:
             print('expression3', end='\n')
-        self.gen_code(Cmd.EXPR_MINUS, (t.value0, t.value1))
+        return self.gen_code(Cmd.EXPR_MINUS, (t.value0, t.value1))
 
     @_('value TIMES value')
     def expression(self, t):
@@ -167,6 +169,7 @@ class PypilerParser(Parser):
     def condition(self, t):
         if self.debug_mode:
             print('condition2', end='\n')
+        self.gen_code(Cmd.COND_NEQ, (t.value0, t.value1))
 
     @_('value LE value')
     def condition(self, t):
@@ -193,32 +196,29 @@ class PypilerParser(Parser):
     def value(self, t):
         if self.debug_mode:
             print('value1', end='\n')
-        return 'NUMBER', t.NUMBER
+        return self.gen_code(Cmd.VAL_NUM, int(t.NUMBER))
 
     @_('identifier')
     def value(self, t):
         if self.debug_mode:
             print('value2', end='\n')
-        return "IDENTIFIER", t.identifier
+        return self.gen_code(Cmd.VAL_ID, t.identifier)
 
     # identifier
     @_('PIDENTIFIER')
     def identifier(self, t):
         if self.debug_mode:
             print('identifier1', end='\n')
-        elem = self.gen_code(Cmd.IDENTIFIER, t.PIDENTIFIER)
-        return "ID_STATIC", elem
+        return self.gen_code(Cmd.IDENTIFIER, t.PIDENTIFIER)
 
     @_('PIDENTIFIER LBRACKET PIDENTIFIER RBRACKET')
     def identifier(self, t):
         if self.debug_mode:
             print('identifier2', end='\n')
-        elem1, elem2 = self.gen_code(Cmd.IDENTIFIER_NEST, (t.PIDENTIFIER0, t.PIDENTIFIER1))
-        return "ID_DYNAMIC", elem1, elem2
+        return self.gen_code(Cmd.IDENTIFIER_NEST, (t.PIDENTIFIER0, t.PIDENTIFIER1))
 
     @_('PIDENTIFIER LBRACKET NUMBER RBRACKET')
     def identifier(self, t):
         if self.debug_mode:
             print('identifier3', end='\n')
-        elem = self.gen_code(Cmd.IDENTIFIER_ARRAY, (t.PIDENTIFIER, t.NUMBER))
-        return "ID_STATIC", elem
+        return self.gen_code(Cmd.IDENTIFIER_ARRAY, (t.PIDENTIFIER, int(t.NUMBER)))
