@@ -15,4 +15,10 @@ class Cmd(enum.Enum):
     EXPR_MINUS = 11
     READ = 12
     WRITE = 13
+    EQ = 14
+    NEQ = 15
+    GE = 16
+    LE = 17
+    GEQ = 18
+    LEQ = 19
 

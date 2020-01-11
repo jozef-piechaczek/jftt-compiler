@@ -125,12 +125,19 @@ class CodeGenerator:
             Cmd.EXPR_MINUS: lambda x: self.__expr_minus(x),
             Cmd.WRITE: lambda x: self.__write(x),
             Cmd.READ: lambda x: self.__read(x),
+            Cmd.EQ: lambda x: self.__eq(x),
+            Cmd.NEQ: lambda x: self.__neq(x),
+            Cmd.GE: lambda x: self.__ge(x),
+            Cmd.GEQ: lambda x: self.__geq(x),
+            Cmd.LE: lambda x: self.__le(x),
+            Cmd.LEQ: lambda x: self.__leq(x),
         }[code](param)
 
     def __push_code(self, x):
         self.__code_offset += 1
         self.__code_list.push(x)
 
+    # noinspection PyUnusedLocal
     def __halt(self, x):
         self.__push_code(("HALT", None))
         self.__code_list.print_all()
@@ -212,3 +219,21 @@ class CodeGenerator:
             Utils.load_dyn_variable(code_list=self.__code_list, elem1=x[1], elem2=x[2])
             self.__code_list.push(('GET', None))
             self.__code_list.push(('STOREI', 3))
+
+    def __eq(self, x):
+        pass
+
+    def __neq(self, x):
+        pass
+
+    def __ge(self, x):
+        pass
+
+    def __geq(self, x):
+        pass
+
+    def __le(self, x):
+        pass
+
+    def __leq(self, x):
+        pass
