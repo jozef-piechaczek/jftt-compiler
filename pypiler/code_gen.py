@@ -85,18 +85,18 @@ class LabelMaker:
 class PostProcessor:
     def process(self, codes):
         label_map = {}
-        elems_to_remove = []
+        codes_to_remove = []
         for idx in range(len(codes)):
             code = codes[idx]
             if code.name == 'EMPTY':
-                codes[idx + 1].label = code.label
-                elems_to_remove.append(idx)
-        for idx in elems_to_remove:
-            codes.pop(idx)
+                codes[idx + 1].label = code.label  # TODO: kurwa mać
+                codes_to_remove.append(code)
+        for code in codes_to_remove:
+            codes.remove(code)
         for idx in range(len(codes)):
             code = codes[idx]
             if code.label is not None:
-                label_map[code.label] = idx + 1
+                label_map[code.label] = idx
         for code in codes:
             for label, idx in label_map.items():
                 if code.offset == label:
@@ -176,6 +176,8 @@ class CodeGenerator:
             Cmd.CMD_READ: lambda x: self.__cmd_read(x),
             Cmd.CMD_IF: lambda x: self.__cmd_if(x),
             Cmd.CMD_IF_ELSE: lambda x: self.__cmd_if_else(x),
+            Cmd.CMD_WHILE: lambda x: self.__cmd_while(x),
+            Cmd.CMD_DO_WHILE: lambda x: self.__cmd_do_while(x),
             Cmd.COND_EQ: lambda x: self.__cond_eq(x),
             Cmd.COND_NEQ: lambda x: self.__cond_neq(x),
             Cmd.COND_GE: lambda x: self.__cond_ge(x),
@@ -200,8 +202,8 @@ class CodeGenerator:
         codes += declarations
         codes += commands
         codes.append(Code('HALT'))
-        for code in codes:
-            print(code.code_str())
+        codes = self.__post_processor.process(codes)
+        self.__post_processor.print(codes)
 
     def __declare(self, x):
         self.__sym_tab.put_symbol(name=x)
@@ -320,10 +322,10 @@ class CodeGenerator:
         codes = []
         (condition, commands) = x
         label = self.__label_maker.get_label()
+        Utils.give_offset_label(condition, label)
         codes += condition
         codes += commands
         codes.append(Code('EMPTY', label=label))
-        Utils.give_offset_label(codes, label)
         return codes
 
     def __cmd_if_else(self, x):
@@ -331,14 +333,39 @@ class CodeGenerator:
         (condition, commands1, commands2) = x
         label1 = self.__label_maker.get_label()
         label2 = self.__label_maker.get_label()
+        Utils.give_offset_label(condition, label1)
         codes += condition
-        Utils.give_offset_label(codes, label1)
         codes += commands1
         codes.append(Code('JUMP', offset=label2))
         commands2[0].label = label1
         codes += commands2
         codes.append(Code('EMPTY', label=label2))
         return codes
+
+    def __cmd_while(self, x):
+        codes = []
+        (condition, commands) = x
+        label1 = self.__label_maker.get_label()
+        label2 = self.__label_maker.get_label()
+        condition[0].label = label2
+        Utils.give_offset_label(condition, label1)
+        codes += condition
+        codes += commands
+        codes.append(Code('JUMP', offset=label2))
+        codes.append(Code('EMPTY', label=label1))
+        return codes
+
+    def __cmd_do_while(self, x):
+        codes = []
+        (commands, condition) = x
+        label1 = self.__label_maker.get_label()
+        label2 = self.__label_maker.get_label()
+        commands[0].label = label1
+        codes += commands
+        Utils.give_offset_label(condition, label2)
+        codes += condition
+        codes.append(Code('JUMP', offset=label1))
+        codes.append(Code('EMPTY', label=label2))
 
     def __cond_neq(self, x):
         codes = []

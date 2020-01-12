@@ -29,4 +29,6 @@ class Cmd(enum.Enum):
     COND_LEQ = 19
     CMDS_CMDS = 20
     CMDS_CMD = 21
+    CMD_WHILE = 1007
+    CMD_DO_WHILE = 1008
 

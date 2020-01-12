@@ -102,11 +102,13 @@ class PypilerParser(Parser):
     def command(self, t):
         if self.debug_mode:
             print('command4', end='\n')
+        return self.gen_code(Cmd.CMD_WHILE, (t.condition, t.commands))
 
     @_('DO commands WHILE condition ENDDO')
     def command(self, t):
         if self.debug_mode:
             print('command5', end='\n')
+        return self.gen_code(Cmd.CMD_DO_WHILE, (t.commands, t.condition))
 
     @_('FOR PIDENTIFIER FROM value TO value DO commands ENDFOR')
     def command(self, t):
