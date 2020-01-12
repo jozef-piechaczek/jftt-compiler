@@ -118,7 +118,8 @@ class PostProcessor:
         return codes
 
     def print(self, codes):
-        for code in codes:
+        for idx in range(len(codes)):
+            code = codes[idx]
             print(code.code_str())
 
 
@@ -392,6 +393,7 @@ class CodeGenerator:
         label1 = self.__label_maker.get_label()
         label2 = self.__label_maker.get_label()
         codes += to_value  # ##
+        codes.append(Code('INC'))
         codes.append(Code('STORE', 4))  # in p_4 save 'to' value
         codes += from_value  # ##
         codes.append(Code('DEC'))
@@ -399,16 +401,35 @@ class CodeGenerator:
         codes.append(Code('LOAD', offset=elem.offset, label=label1))  # ##
         codes.append(Code('INC'))
         codes.append(Code('STORE', elem.offset))  # j += 1
-        codes += commands
-        codes.append(Code('LOAD', elem.offset))
         codes.append(Code('SUB', 4))
         codes.append(Code('JZERO', label2))
+        codes += commands
+        # codes.append(Code('LOAD', elem.offset))
         codes.append(Code('JUMP', label1))
         codes.append(Code('EMPTY', label=label2))
         return codes
 
     def __cmd_for_down_to(self, x):
+        codes = []
         (pid, from_value, downto_value, commands) = x
+        elem = self.__sym_tab.get_symbol(pid)
+        label1 = self.__label_maker.get_label()
+        label2 = self.__label_maker.get_label()
+        codes += downto_value  # ##
+        codes.append(Code('DEC'))
+        codes.append(Code('STORE', 4))  # in p_4 save 'to' value
+        codes += from_value  # ##
+        codes.append(Code('INC'))
+        codes.append(Code('STORE', elem.offset))   # save 'from' value - 1 in p_j
+        codes.append(Code('LOAD', offset=elem.offset, label=label1))  # ##
+        codes.append(Code('DEC'))
+        codes.append(Code('STORE', elem.offset))  # j += 1
+        codes.append(Code('SUB', 4))
+        codes.append(Code('JZERO', label2))
+        codes += commands
+        codes.append(Code('JUMP', label1))
+        codes.append(Code('EMPTY', label=label2))
+        return codes
 
     def __cond_neq(self, x):
         codes = []

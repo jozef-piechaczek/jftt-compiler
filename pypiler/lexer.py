@@ -3,7 +3,7 @@ from sly import Lexer
 
 class PypilerLexer(Lexer):
     ignore = ' \t'
-    ignore_comment = r'\[(.|\n)*\]'
+    ignore_comment = r'(\[)([^\[\]]|\n)*(\])'
     ignore_newline = r'\n+'
     # noinspection PyUnboundLocalVariable,PyUnresolvedReferences
     tokens = {
