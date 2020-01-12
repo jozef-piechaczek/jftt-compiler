@@ -71,8 +71,6 @@ class Code:
         ret = self.name
         if self.offset is not None:
             ret += f' {self.offset}'
-        if self.label is not None:
-            ret += f' {self.label}'
         return ret
 
 
@@ -86,10 +84,28 @@ class LabelMaker:
 
 class PostProcessor:
     def process(self, codes):
-        pass
+        label_map = {}
+        elems_to_remove = []
+        for idx in range(len(codes)):
+            code = codes[idx]
+            if code.name == 'EMPTY':
+                codes[idx + 1].label = code.label
+                elems_to_remove.append(idx)
+        for idx in elems_to_remove:
+            codes.pop(idx)
+        for idx in range(len(codes)):
+            code = codes[idx]
+            if code.label is not None:
+                label_map[code.label] = idx + 1
+        for code in codes:
+            for label, idx in label_map.items():
+                if code.offset == label:
+                    code.offset = idx
+        return codes
 
     def print(self, codes):
-        pass
+        for code in codes:
+            print(code.code_str())
 
 
 class SymbolTable:
@@ -136,16 +152,17 @@ class CodeGenerator:
     __code_offset = 0
     __sym_tab = SymbolTable()
     __label_maker = LabelMaker()
+    __post_processor = PostProcessor()
 
     def gen_code(self, code, param):
         # noinspection PyStatementEffect
         return {
             Cmd.PROG_HALT: lambda x: self.__prog_halt(x),
             Cmd.PROG_HALT_D: lambda x: self.__prog_halt_d(x),
-            Cmd.DECLARE_ID: lambda x: self.__declare(x),
-            Cmd.DECLARE_ARRAY: lambda x: self.__declare_array(x),
-            Cmd.DECLARE_D_ID: lambda x: self.__declare_d(x),
-            Cmd.DECLARE_D_ARRAY: lambda x: self.__declare_d_array(x),
+            Cmd.DECL_ID: lambda x: self.__declare(x),
+            Cmd.DECL_ARRAY: lambda x: self.__declare_array(x),
+            Cmd.DECL_D_ID: lambda x: self.__declare_d(x),
+            Cmd.DECL_D_ARRAY: lambda x: self.__declare_d_array(x),
             Cmd.IDENTIFIER: lambda x: self.__identifier(x),
             Cmd.IDENTIFIER_ARRAY: lambda x: self.__identifier_array(x),
             Cmd.IDENTIFIER_NEST: lambda x: self.__identifier_nest(x),
@@ -174,8 +191,8 @@ class CodeGenerator:
         codes = [Code('SUB', 0), Code('INC'), Code('STORE', 1)]
         codes += x
         codes.append(Code('HALT'))
-        for code in codes:
-            print(code.code_str())
+        codes = self.__post_processor.process(codes)
+        self.__post_processor.print(codes)
 
     def __prog_halt_d(self, x):
         (declarations, commands) = x

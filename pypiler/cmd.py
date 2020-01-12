@@ -4,10 +4,10 @@ import enum
 class Cmd(enum.Enum):
     PROG_HALT = 1
     PROG_HALT_D = 1006
-    DECLARE_ID = 2
-    DECLARE_ARRAY = 3
-    DECLARE_D_ID = 1003
-    DECLARE_D_ARRAY = 1004
+    DECL_ID = 2
+    DECL_ARRAY = 3
+    DECL_D_ID = 1003
+    DECL_D_ARRAY = 1004
     IDENTIFIER = 6
     IDENTIFIER_ARRAY = 7
     IDENTIFIER_NEST = 8

@@ -46,25 +46,25 @@ class PypilerParser(Parser):
     def declarations(self, t):  # declare pidentifier
         if self.debug_mode:
             print('declarations3', end='\n')
-        return self.gen_code(Cmd.DECLARE_D_ID, (t.declarations, t.PIDENTIFIER))
+        return self.gen_code(Cmd.DECL_D_ID, (t.declarations, t.PIDENTIFIER))
 
     @_('declarations COMMA PIDENTIFIER LBRACKET NUMBER COLON NUMBER RBRACKET')
     def declarations(self, t):  # declare array
         if self.debug_mode:
             print('declarations2', end='\n')
-        return self.gen_code(Cmd.DECLARE_D_ARRAY, (t.declarations, t.PIDENTIFIER, int(t.NUMBER0), int(t.NUMBER1)))
+        return self.gen_code(Cmd.DECL_D_ARRAY, (t.declarations, t.PIDENTIFIER, int(t.NUMBER0), int(t.NUMBER1)))
 
     @_('PIDENTIFIER')
     def declarations(self, t):  # declare pidentifier
         if self.debug_mode:
             print('declarations3', end='\n')
-        return self.gen_code(Cmd.DECLARE_ID, t.PIDENTIFIER)
+        return self.gen_code(Cmd.DECL_ID, t.PIDENTIFIER)
 
     @_('PIDENTIFIER LBRACKET NUMBER COLON NUMBER RBRACKET')
     def declarations(self, t):  # declare array
         if self.debug_mode:
             print('declarations4', end='\n')
-        return self.gen_code(Cmd.DECLARE_ARRAY, (t.PIDENTIFIER, int(t.NUMBER0), int(t.NUMBER1)))
+        return self.gen_code(Cmd.DECL_ARRAY, (t.PIDENTIFIER, int(t.NUMBER0), int(t.NUMBER1)))
 
     # commands
     @_('commands command')
