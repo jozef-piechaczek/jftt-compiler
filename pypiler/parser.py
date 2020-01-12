@@ -157,6 +157,7 @@ class PypilerParser(Parser):
     def expression(self, t):
         if self.debug_mode:
             print('expression4', end='\n')
+        return self.gen_code(Cmd.EXPR_TIMES, (t.value0, t.value1))
 
     @_('value DIV value')
     def expression(self, t):

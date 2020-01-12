@@ -42,9 +42,9 @@ class Utils:
             codes.append(Code('SUB', 0))
         else:
             codes += Utils.__gen_abs_value(abs(value))
-            codes.append(Code('STORE', 5))
+            codes.append(Code('STORE', 4))
             codes.append(Code('SUB', 0))
-            codes.append(Code('SUB', 5))
+            codes.append(Code('SUB', 4))
         return codes
 
     @staticmethod
@@ -127,7 +127,7 @@ class PostProcessor:
 
 
 class SymbolTable:
-    __data_offset = 10
+    __data_offset = 100
     __data = []  # [(n0, 1), (n1, 2), (j, 3), (k, 4)]
 
     def put_symbol(self, name):
@@ -189,6 +189,7 @@ class CodeGenerator:
             Cmd.EXPR_VAL: lambda x: self.__expr_val(x),
             Cmd.EXPR_PLUS: lambda x: self.__expr_plus(x),
             Cmd.EXPR_MINUS: lambda x: self.__expr_minus(x),
+            Cmd.EXPR_TIMES: lambda x: self.__expr_times(x),
             Cmd.CMD_ASSIGN: lambda x: self.__cmd_assign(x),
             Cmd.CMD_WRITE: lambda x: self.__cmd_write(x),
             Cmd.CMD_READ: lambda x: self.__cmd_read(x),
@@ -211,7 +212,7 @@ class CodeGenerator:
     # noinspection PyUnusedLocal
     def __prog_halt(self, x):
         (x_codes, x_info) = x
-        codes = [Code('SUB', 0), Code('INC'), Code('STORE', 1)]
+        codes = [Code('SUB', 0), Code('INC'), Code('STORE', 1), Code('DEC'), Code('DEC'), Code('STORE', 2)]
         codes += x_codes
         codes.append(Code('HALT'))
         codes = self.__post_processor.process(codes)
@@ -222,7 +223,7 @@ class CodeGenerator:
         (declarations, commands) = x
         (declarations_code, declarations_info) = declarations
         (commands_code, commands_info) = commands
-        codes = [Code('SUB', 0), Code('INC'), Code('STORE', 1)]
+        codes = [Code('SUB', 0), Code('INC'), Code('STORE', 1), Code('DEC'), Code('DEC'), Code('STORE', 2)]
         codes += declarations_code
         codes += commands_code
         codes.append(Code('HALT'))
@@ -296,9 +297,9 @@ class CodeGenerator:
         (value0_code, value0_info) = value0
         (value1_code, value1_info) = value1
         codes += value1_code
-        codes.append(Code('STORE', 2))
+        codes.append(Code('STORE', 5))
         codes += value0_code
-        codes.append(Code('ADD', 2))
+        codes.append(Code('ADD', 5))
         return codes, (Cmd.EXPR_PLUS, value0_info, value1_info)
 
     def __expr_minus(self, x):
@@ -307,10 +308,46 @@ class CodeGenerator:
         (value0_code, value0_info) = value0
         (value1_code, value1_info) = value1
         codes += value1_code
-        codes.append(Code('STORE', 2))
+        codes.append(Code('STORE', 5))
         codes += value0_code
-        codes.append(Code('SUB', 2))
+        codes.append(Code('SUB', 5))
         return codes, (Cmd.EXPR_MINUS, value0_info, value1_info)
+
+    def __expr_times(self, x):
+        codes = []
+        (value0, value1) = x
+        (value0_code, value0_info) = value0
+        (value1_code, value1_info) = value1
+        label1 = self.__label_maker.get_label()
+        label2 = self.__label_maker.get_label()
+        label3 = self.__label_maker.get_label()
+        codes.append(Code('SUB', 0))
+        codes.append(Code('STORE', 6))
+        codes.append(Code('STORE', 7))
+        codes += value0_code
+        codes.append(Code('STORE', 10))
+        codes += value1_code
+        codes.append(Code('STORE', 9))
+        codes.append(Code('JZERO', offset=label1, label=label2))
+        codes.append(Code('SHIFT', 2))
+        codes.append(Code('STORE', 8))
+        codes.append(Code('LOAD', 9))
+        codes.append(Code('INC'))
+        codes.append(Code('SHIFT', 2))
+        codes.append(Code('SUB', 8))
+        codes.append(Code('JZERO', offset=label3))
+        codes.append(Code('LOAD', 10))
+        codes.append(Code('SHIFT', 7))
+        codes.append(Code('ADD', 6))
+        codes.append(Code('STORE', 6))
+        codes.append(Code('LOAD', offset=7, label=label3))
+        codes.append(Code('INC'))
+        codes.append(Code('STORE', 7))
+        codes.append(Code('LOAD', 8))
+        codes.append(Code('STORE', 9))
+        codes.append(Code('JUMP', offset=label2))
+        codes.append(Code('LOAD', 6, label=label1))
+        return codes, (Cmd.EXPR_TIMES, value1_info, value1_info)
 
     def __cmds_cmds(self, x):
         codes = []
@@ -479,17 +516,17 @@ class CodeGenerator:
         codes.append(Code('JUMP', label2))
         codes.append(Code('EMPTY', label=label1))
         return codes, (Cmd.CMD_FOR_DOWN_TO, 1, pid, from_value_info, downto_value_info, commands_info)
-
     # **************** CONDITIONS ****************
+
     def __cond_neq(self, x):
         codes = []
         (value0, value1) = x
         (value0_code, value0_info) = value0
         (value1_code, value1_info) = value1
         codes += value1_code
-        codes.append(Code('STORE', 2))
+        codes.append(Code('STORE', 5))
         codes += value0_code
-        codes.append(Code('SUB', 2))
+        codes.append(Code('SUB', 5))
         codes.append(Code('JZERO'))
         return codes, (Cmd.COND_NEQ, value0_info, value1_info)
 
@@ -499,9 +536,9 @@ class CodeGenerator:
         (value0_code, value0_info) = value0
         (value1_code, value1_info) = value1
         codes += value1_code
-        codes.append(Code('STORE', 2))
+        codes.append(Code('STORE', 5))
         codes += value0_code
-        codes.append(Code('SUB', 2))
+        codes.append(Code('SUB', 5))
         codes.append(Code('JPOS'))
         codes.append(Code('JNEG'))
         return codes, (Cmd.COND_EQ, value0_info, value1_info)
@@ -512,9 +549,9 @@ class CodeGenerator:
         (value0_code, value0_info) = value0
         (value1_code, value1_info) = value1
         codes += value1_code
-        codes.append(Code('STORE', 2))
+        codes.append(Code('STORE', 5))
         codes += value0_code
-        codes.append(Code('SUB', 2))
+        codes.append(Code('SUB', 5))
         codes.append(Code('JNEG'))
         codes.append(Code('JZERO'))
         return codes, (Cmd.COND_GE, value0_info, value1_info)
@@ -525,9 +562,9 @@ class CodeGenerator:
         (value0_code, value0_info) = value0
         (value1_code, value1_info) = value1
         codes += value1_code
-        codes.append(Code('STORE', 2))
+        codes.append(Code('STORE', 5))
         codes += value0_code
-        codes.append(Code('SUB', 2))
+        codes.append(Code('SUB', 5))
         codes.append(Code('JNEG'))
         return codes, (Cmd.COND_GEQ, value0_info, value1_info)
 
@@ -537,9 +574,9 @@ class CodeGenerator:
         (value0_code, value0_info) = value0
         (value1_code, value1_info) = value1
         codes += value1_code
-        codes.append(Code('STORE', 2))
+        codes.append(Code('STORE', 5))
         codes += value0_code
-        codes.append(Code('SUB', 2))
+        codes.append(Code('SUB', 5))
         codes.append(Code('JPOS'))
         codes.append(Code('JZERO'))
         return codes, (Cmd.COND_LE, value0_info, value1_info)
@@ -550,8 +587,8 @@ class CodeGenerator:
         (value0_code, value0_info) = value0
         (value1_code, value1_info) = value1
         codes += value1_code
-        codes.append(Code('STORE', 2))
+        codes.append(Code('STORE', 5))
         codes += value0_code
-        codes.append(Code('SUB', 2))
+        codes.append(Code('SUB', 5))
         codes.append(Code('JPOS'))
         return codes, (Cmd.COND_LEQ, value0_info, value1_info)
