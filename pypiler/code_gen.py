@@ -118,9 +118,12 @@ class PostProcessor:
         return codes
 
     def print(self, codes):
+        string_codes = []
         for idx in range(len(codes)):
             code = codes[idx]
             print(code.code_str())
+            string_codes.append(code.code_str())
+        return string_codes
 
 
 class SymbolTable:
@@ -207,265 +210,348 @@ class CodeGenerator:
 
     # noinspection PyUnusedLocal
     def __prog_halt(self, x):
+        (x_codes, x_info) = x
         codes = [Code('SUB', 0), Code('INC'), Code('STORE', 1)]
-        codes += x
+        codes += x_codes
         codes.append(Code('HALT'))
         codes = self.__post_processor.process(codes)
-        self.__post_processor.print(codes)
+        string_codes = self.__post_processor.print(codes)
+        return string_codes
 
     def __prog_halt_d(self, x):
         (declarations, commands) = x
+        (declarations_code, declarations_info) = declarations
+        (commands_code, commands_info) = commands
         codes = [Code('SUB', 0), Code('INC'), Code('STORE', 1)]
-        codes += declarations
-        codes += commands
+        codes += declarations_code
+        codes += commands_code
         codes.append(Code('HALT'))
         codes = self.__post_processor.process(codes)
-        self.__post_processor.print(codes)
+        string_codes = self.__post_processor.print(codes)
+        return string_codes
 
     def __declare(self, x):
         self.__sym_tab.put_symbol(name=x)
-        return []
+        return [], (Cmd.DECL_ID, x)
 
     def __declare_array(self, x):
         (name, begin, end) = x
         code_list = self.__sym_tab.put_array(name=name, begin=begin, end=end)
-        return code_list
+        return code_list, (Cmd.DECL_ARRAY, name, begin, end)
 
     def __declare_d(self, x):
         (declarations, pidentifier) = x
+        (declarations_code, declarations_info) = declarations
         self.__sym_tab.put_symbol(name=pidentifier)
-        return declarations
+        return declarations_code, (Cmd.DECL_D_ID, declarations_info, pidentifier)
 
     def __declare_d_array(self, x):
+        codes = []
         (declarations, name, begin, end) = x
-        code_list = self.__sym_tab.put_array(name=name, begin=begin, end=end)
-        return declarations + code_list
+        (declarations_code, declarations_info) = declarations
+        codes += declarations_code
+        codes += self.__sym_tab.put_array(name=name, begin=begin, end=end)
+        return codes, (Cmd.DECL_D_ARRAY, declarations, begin, end, name)
 
     def __identifier(self, x):
         elem = self.__sym_tab.get_symbol(x)
-        return "STATIC", elem
+        return [], ("STATIC", elem)
 
     def __identifier_array(self, x):
         (name, idx) = x
         elem = self.__sym_tab.get_symbol(f'{name}{idx}')
-        return "STATIC", elem
+        return [], ("STATIC", elem)
 
     def __identifier_nest(self, x):
         (name1, name2) = x
         elem1 = self.__sym_tab.get_symbol(name1)
         elem2 = self.__sym_tab.get_symbol(name2)
-        return "DYNAMIC", elem1, elem2
+        return [], ("DYNAMIC", elem1, elem2)
 
     def __value_identifier(self, x):
         codes = []
-        if x[0] == "STATIC":
-            codes.append(Code('LOAD', x[1].offset))
-        elif x[0] == "DYNAMIC":
-            get_addr = Utils.load_dyn_variable(x[1], x[2])
+        (x_codes, x_info) = x
+        if x_info[0] == "STATIC":
+            codes.append(Code('LOAD', x_info[1].offset))
+        elif x_info[0] == "DYNAMIC":
+            get_addr = Utils.load_dyn_variable(x_info[1], x_info[2])
             codes += get_addr
             codes.append(Code('STORE', 3))
             codes.append(Code('LOADI', 3))
         else:
             raise Exception('incorrect identifier type')
-        return codes
+        return codes, (Cmd.VAL_ID, x_info)
 
     def __value_number(self, x):
         codes = Utils.gen_value(x)
-        return codes
+        return codes, (Cmd.VAL_NUM, x)
 
     def __expr_val(self, x):
-        return x
+        (x_codes, x_info) = x
+        return x_codes, (Cmd.EXPR_VAL, x_info)
 
     def __expr_plus(self, x):
-        (value0, value1) = x
         codes = []
-        codes += value1
+        (value0, value1) = x
+        (value0_code, value0_info) = value0
+        (value1_code, value1_info) = value1
+        codes += value1_code
         codes.append(Code('STORE', 2))
-        codes += value0
+        codes += value0_code
         codes.append(Code('ADD', 2))
-        return codes
+        return codes, (Cmd.EXPR_PLUS, value0_info, value1_info)
 
     def __expr_minus(self, x):
+        codes = []
         (value0, value1) = x
-        codes = []
-        codes += value1
+        (value0_code, value0_info) = value0
+        (value1_code, value1_info) = value1
+        codes += value1_code
         codes.append(Code('STORE', 2))
-        codes += value0
+        codes += value0_code
         codes.append(Code('SUB', 2))
-        return codes
-
-    def __cmd_assign(self, x):
-        codes = []
-        (identifier, expr) = x
-        if expr is None:
-            raise Exception('expression not implemented')
-        if identifier[0] == "STATIC":
-            codes += expr
-            codes.append(Code('STORE', identifier[1].offset))
-        elif identifier[0] == "DYNAMIC":
-            get_addr = Utils.load_dyn_variable(identifier[1], identifier[2])
-            get_addr.append(Code('STORE', 3))
-            codes += get_addr
-            codes += expr
-            codes.append(Code('STOREI', 3))
-        else:
-            raise Exception('incorrect identifier type')
-        return codes
+        return codes, (Cmd.EXPR_MINUS, value0_info, value1_info)
 
     def __cmds_cmds(self, x):
         codes = []
         (commands, command) = x
-        codes += commands
-        codes += command
-        return codes
+        (commands_code, commands_info) = commands
+        (command_code, command_info) = command
+        codes += commands_code
+        codes += command_code
+        commands_info.append(command_info)
+        return codes, commands_info
 
     def __cmds_cmd(self, x):
         codes = []
-        command = x
-        codes += command
-        return codes
+        (command_code, command_info) = x
+        codes += command_code
+        return codes, [command_info]
+
+    def __cmd_assign(self, x):
+        codes = []
+        (identifier, expr) = x
+        (identifier_code, identifier_info) = identifier
+        (expr_code, expr_info) = expr
+        if expr is None:
+            raise Exception('expression not implemented')
+        if identifier_info[0] == "STATIC":
+            codes += expr_code
+            codes.append(Code('STORE', identifier_info[1].offset))
+        elif identifier_info[0] == "DYNAMIC":
+            get_addr = Utils.load_dyn_variable(identifier_info[1], identifier_info[2])
+            get_addr.append(Code('STORE', 3))
+            codes += get_addr
+            codes += expr_code
+            codes.append(Code('STOREI', 3))
+        else:
+            raise Exception('incorrect identifier type')
+        return codes, (Cmd.CMD_ASSIGN, 0, identifier_info, expr_info)
 
     def __cmd_read(self, x):
         codes = []
-        codes += self.__cmd_assign((x, [Code('GET')]))
-        return codes, 0, 'READ', x
+        (identifier_code, identifier_info) = x
+        if identifier_info[0] == "STATIC":
+            codes.append(Code('GET'))
+            codes.append(Code('STORE', identifier_info[1].offset))
+        elif identifier_info[0] == "DYNAMIC":
+            get_addr = Utils.load_dyn_variable(identifier_info[1], identifier_info[2])
+            get_addr.append(Code('STORE', 3))
+            codes += get_addr
+            codes.append(Code('GET'))
+            codes.append(Code('STOREI', 3))
+        else:
+            raise Exception('incorrect identifier type')
+        return codes, (Cmd.CMD_READ, 0, identifier_info)
 
     def __cmd_write(self, x):
         codes = []
-        value = x
-        codes += value
+        (value_codes, value_info) = x
+        codes += value_codes
         codes.append(Code('PUT'))
-        return codes, 0, Cmd.CMD_WRITE, x
+        return codes, (Cmd.CMD_WRITE, 0, value_info)
 
     def __cmd_if(self, x):
         codes = []
         (condition, commands) = x
+        (condition_codes, condition_info) = condition
+        (commands_codes, commands_info) = commands
         label = self.__label_maker.get_label()
-        Utils.give_offset_label(condition, label)
-        codes += condition
-        codes += commands
+        Utils.give_offset_label(condition_codes, label)
+        codes += condition_codes
+        codes += commands_codes
         codes.append(Code('EMPTY', label=label))
-        return codes, 0, Cmd.IF, x
+        return codes, (Cmd.CMD_IF, 0, condition_info, commands_info)
 
     def __cmd_if_else(self, x):
         codes = []
         (condition, commands1, commands2) = x
+        (condition_codes, condition_info) = condition
+        (commands1_codes, commands1_info) = commands1
+        (commands2_codes, commands2_info) = commands2
         label1 = self.__label_maker.get_label()
         label2 = self.__label_maker.get_label()
-        Utils.give_offset_label(condition, label1)
-        codes += condition
-        codes += commands1
+        Utils.give_offset_label(condition_codes, label1)
+        codes += condition_codes
+        codes += commands1_codes
         codes.append(Code('JUMP', offset=label2))
-        commands2[0].label = label1
-        codes += commands2
+        commands2_codes[0].label = label1
+        codes += commands2_codes
         codes.append(Code('EMPTY', label=label2))
-        return codes, 0, Cmd.CMD_IF_ELSE, x
+        return codes, (Cmd.CMD_IF_ELSE, 0, condition_info, commands1_info, commands2_info)
 
     def __cmd_while(self, x):
         codes = []
         (condition, commands) = x
+        (condition_codes, condition_info) = condition
+        (commands_codes, commands_info) = commands
         label1 = self.__label_maker.get_label()
         label2 = self.__label_maker.get_label()
-        condition[0].label = label2
-        Utils.give_offset_label(condition, label1)
-        codes += condition
-        codes += commands
+        condition_codes[0].label = label2
+        Utils.give_offset_label(condition_codes, label1)
+        codes += condition_codes
+        codes += commands_codes
         codes.append(Code('JUMP', offset=label2))
         codes.append(Code('EMPTY', label=label1))
-        return codes, 0, Cmd.CMD_WHILE, x
+        return codes, (Cmd.CMD_WHILE, 0, condition_info, commands_info)
 
     def __cmd_do_while(self, x):
         codes = []
         (commands, condition) = x
+        (condition_codes, condition_info) = condition
+        (commands_codes, commands_info) = commands
         label1 = self.__label_maker.get_label()
         label2 = self.__label_maker.get_label()
-        commands[0].label = label1
-        codes += commands
-        Utils.give_offset_label(condition, label2)
-        codes += condition
+        commands_codes[0].label = label1
+        codes += commands_codes
+        Utils.give_offset_label(condition_codes, label2)
+        codes += condition_codes
         codes.append(Code('JUMP', offset=label1))
         codes.append(Code('EMPTY', label=label2))
-        return codes, 0, Cmd.CMD_DO_WHILE, x
+        return codes, (Cmd.CMD_DO_WHILE, 0, condition_info, commands_info)
 
     def __cmd_for_to(self, x):
         codes = []
         (pid, from_value, to_value, commands) = x
+        (from_value_code, from_value_info) = from_value
+        (to_value_code, to_value_info) = to_value
+        (commands_code, commands_info) = commands
         elem = self.__sym_tab.get_symbol(pid)
         label1 = self.__label_maker.get_label()
         label2 = self.__label_maker.get_label()
-        codes += from_value
+        codes += from_value_code
         codes.append(Code('DEC'))
         codes.append(Code('STORE', elem.offset))
-        to_value[0].label = label2
-        codes += to_value
+        to_value_code[0].label = label2
+        codes += to_value_code
         codes.append(Code('SUB', elem.offset))
         codes.append(Code('JNEG', label1))
         codes.append(Code('JZERO', label1))
         codes.append(Code('LOAD', elem.offset))
         codes.append(Code('INC'))
         codes.append(Code('STORE', elem.offset))
-        codes += commands
+        codes += commands_code
         codes.append(Code('JUMP', label2))
         codes.append(Code('EMPTY', label=label1))
-        return codes, 1, Cmd.CMD_FOR_TO, x
+        return codes, (Cmd.CMD_FOR_TO, 1, pid, from_value_info, to_value_info, commands_info)
 
     def __cmd_for_down_to(self, x):
         codes = []
         (pid, from_value, downto_value, commands) = x
+        (from_value_code, from_value_info) = from_value
+        (downto_value_code, downto_value_info) = downto_value
+        (commands_code, commands_info) = commands
         elem = self.__sym_tab.get_symbol(pid)
         label1 = self.__label_maker.get_label()
         label2 = self.__label_maker.get_label()
-        codes += from_value
+        codes += from_value_code
         codes.append(Code('INC'))
         codes.append(Code('STORE', elem.offset))
-        downto_value[0].label = label2
-        codes += downto_value
+        downto_value_code[0].label = label2
+        codes += downto_value_code
         codes.append(Code('SUB', elem.offset))
         codes.append(Code('JPOS', label1))
         codes.append(Code('JZERO', label1))
         codes.append(Code('LOAD', elem.offset))
         codes.append(Code('DEC'))
         codes.append(Code('STORE', elem.offset))
-        codes += commands
+        codes += commands_code
         codes.append(Code('JUMP', label2))
         codes.append(Code('EMPTY', label=label1))
-        return codes, 1, Cmd.CMD_FOR_DOWN_TO, x
+        return codes, (Cmd.CMD_FOR_DOWN_TO, 1, pid, from_value_info, downto_value_info, commands_info)
 
+    # **************** CONDITIONS ****************
     def __cond_neq(self, x):
         codes = []
-        codes += self.__expr_minus(x)
+        (value0, value1) = x
+        (value0_code, value0_info) = value0
+        (value1_code, value1_info) = value1
+        codes += value1_code
+        codes.append(Code('STORE', 2))
+        codes += value0_code
+        codes.append(Code('SUB', 2))
         codes.append(Code('JZERO'))
-        return codes
+        return codes, (Cmd.COND_NEQ, value0_info, value1_info)
 
     def __cond_eq(self, x):
         codes = []
-        codes += self.__expr_minus(x)
+        (value0, value1) = x
+        (value0_code, value0_info) = value0
+        (value1_code, value1_info) = value1
+        codes += value1_code
+        codes.append(Code('STORE', 2))
+        codes += value0_code
+        codes.append(Code('SUB', 2))
         codes.append(Code('JPOS'))
         codes.append(Code('JNEG'))
-        return codes
+        return codes, (Cmd.COND_EQ, value0_info, value1_info)
 
     def __cond_ge(self, x):
         codes = []
-        codes += self.__expr_minus(x)
+        (value0, value1) = x
+        (value0_code, value0_info) = value0
+        (value1_code, value1_info) = value1
+        codes += value1_code
+        codes.append(Code('STORE', 2))
+        codes += value0_code
+        codes.append(Code('SUB', 2))
         codes.append(Code('JNEG'))
         codes.append(Code('JZERO'))
-        return codes
+        return codes, (Cmd.COND_GE, value0_info, value1_info)
 
     def __cond_geq(self, x):
         codes = []
-        codes += self.__expr_minus(x)
+        (value0, value1) = x
+        (value0_code, value0_info) = value0
+        (value1_code, value1_info) = value1
+        codes += value1_code
+        codes.append(Code('STORE', 2))
+        codes += value0_code
+        codes.append(Code('SUB', 2))
         codes.append(Code('JNEG'))
-        return codes
+        return codes, (Cmd.COND_GEQ, value0_info, value1_info)
 
     def __cond_le(self, x):
         codes = []
-        codes += self.__expr_minus(x)
+        (value0, value1) = x
+        (value0_code, value0_info) = value0
+        (value1_code, value1_info) = value1
+        codes += value1_code
+        codes.append(Code('STORE', 2))
+        codes += value0_code
+        codes.append(Code('SUB', 2))
         codes.append(Code('JPOS'))
         codes.append(Code('JZERO'))
-        return codes
+        return codes, (Cmd.COND_LE, value0_info, value1_info)
 
     def __cond_leq(self, x):
         codes = []
-        codes += self.__expr_minus(x)
+        (value0, value1) = x
+        (value0_code, value0_info) = value0
+        (value1_code, value1_info) = value1
+        codes += value1_code
+        codes.append(Code('STORE', 2))
+        codes += value0_code
+        codes.append(Code('SUB', 2))
         codes.append(Code('JPOS'))
-        return codes
+        return codes, (Cmd.COND_LEQ, value0_info, value1_info)

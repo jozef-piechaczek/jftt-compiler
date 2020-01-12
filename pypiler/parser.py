@@ -33,13 +33,13 @@ class PypilerParser(Parser):
     def program(self, t):  # halt program
         if self.debug_mode:
             print('program1', end='\n')
-        self.gen_code(Cmd.PROG_HALT_D, (t.declarations, t.commands))
+        return self.gen_code(Cmd.PROG_HALT_D, (t.declarations, t.commands))
 
     @_('BEGIN commands END')
     def program(self, t):  # halt program
         if self.debug_mode:
             print('program2', end='\n')
-        self.gen_code(Cmd.PROG_HALT, t.commands)
+        return self.gen_code(Cmd.PROG_HALT, t.commands)
 
     # declarations
     @_('declarations COMMA PIDENTIFIER')
