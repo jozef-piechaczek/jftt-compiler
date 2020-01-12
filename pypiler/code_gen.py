@@ -42,9 +42,9 @@ class Utils:
             codes.append(Code('SUB', 0))
         else:
             codes += Utils.__gen_abs_value(abs(value))
-            codes.append(Code('STORE', 2))
+            codes.append(Code('STORE', 5))
             codes.append(Code('SUB', 0))
-            codes.append(Code('SUB', 2))
+            codes.append(Code('SUB', 5))
         return codes
 
     @staticmethod
@@ -328,14 +328,14 @@ class CodeGenerator:
     def __cmd_read(self, x):
         codes = []
         codes += self.__cmd_assign((x, [Code('GET')]))
-        return codes
+        return codes, 0, 'READ', x
 
     def __cmd_write(self, x):
         codes = []
         value = x
         codes += value
         codes.append(Code('PUT'))
-        return codes
+        return codes, 0, Cmd.CMD_WRITE, x
 
     def __cmd_if(self, x):
         codes = []
@@ -345,7 +345,7 @@ class CodeGenerator:
         codes += condition
         codes += commands
         codes.append(Code('EMPTY', label=label))
-        return codes
+        return codes, 0, Cmd.IF, x
 
     def __cmd_if_else(self, x):
         codes = []
@@ -359,7 +359,7 @@ class CodeGenerator:
         commands2[0].label = label1
         codes += commands2
         codes.append(Code('EMPTY', label=label2))
-        return codes
+        return codes, 0, Cmd.CMD_IF_ELSE, x
 
     def __cmd_while(self, x):
         codes = []
@@ -372,7 +372,7 @@ class CodeGenerator:
         codes += commands
         codes.append(Code('JUMP', offset=label2))
         codes.append(Code('EMPTY', label=label1))
-        return codes
+        return codes, 0, Cmd.CMD_WHILE, x
 
     def __cmd_do_while(self, x):
         codes = []
@@ -385,6 +385,7 @@ class CodeGenerator:
         codes += condition
         codes.append(Code('JUMP', offset=label1))
         codes.append(Code('EMPTY', label=label2))
+        return codes, 0, Cmd.CMD_DO_WHILE, x
 
     def __cmd_for_to(self, x):
         codes = []
@@ -392,22 +393,21 @@ class CodeGenerator:
         elem = self.__sym_tab.get_symbol(pid)
         label1 = self.__label_maker.get_label()
         label2 = self.__label_maker.get_label()
-        codes += to_value  # ##
-        codes.append(Code('INC'))
-        codes.append(Code('STORE', 4))  # in p_4 save 'to' value
-        codes += from_value  # ##
+        codes += from_value
         codes.append(Code('DEC'))
-        codes.append(Code('STORE', elem.offset))   # save 'from' value - 1 in p_j
-        codes.append(Code('LOAD', offset=elem.offset, label=label1))  # ##
+        codes.append(Code('STORE', elem.offset))
+        to_value[0].label = label2
+        codes += to_value
+        codes.append(Code('SUB', elem.offset))
+        codes.append(Code('JNEG', label1))
+        codes.append(Code('JZERO', label1))
+        codes.append(Code('LOAD', elem.offset))
         codes.append(Code('INC'))
-        codes.append(Code('STORE', elem.offset))  # j += 1
-        codes.append(Code('SUB', 4))
-        codes.append(Code('JZERO', label2))
+        codes.append(Code('STORE', elem.offset))
         codes += commands
-        # codes.append(Code('LOAD', elem.offset))
-        codes.append(Code('JUMP', label1))
-        codes.append(Code('EMPTY', label=label2))
-        return codes
+        codes.append(Code('JUMP', label2))
+        codes.append(Code('EMPTY', label=label1))
+        return codes, 1, Cmd.CMD_FOR_TO, x
 
     def __cmd_for_down_to(self, x):
         codes = []
@@ -415,21 +415,21 @@ class CodeGenerator:
         elem = self.__sym_tab.get_symbol(pid)
         label1 = self.__label_maker.get_label()
         label2 = self.__label_maker.get_label()
-        codes += downto_value  # ##
-        codes.append(Code('DEC'))
-        codes.append(Code('STORE', 4))  # in p_4 save 'to' value
-        codes += from_value  # ##
+        codes += from_value
         codes.append(Code('INC'))
-        codes.append(Code('STORE', elem.offset))   # save 'from' value - 1 in p_j
-        codes.append(Code('LOAD', offset=elem.offset, label=label1))  # ##
+        codes.append(Code('STORE', elem.offset))
+        downto_value[0].label = label2
+        codes += downto_value
+        codes.append(Code('SUB', elem.offset))
+        codes.append(Code('JPOS', label1))
+        codes.append(Code('JZERO', label1))
+        codes.append(Code('LOAD', elem.offset))
         codes.append(Code('DEC'))
-        codes.append(Code('STORE', elem.offset))  # j += 1
-        codes.append(Code('SUB', 4))
-        codes.append(Code('JZERO', label2))
+        codes.append(Code('STORE', elem.offset))
         codes += commands
-        codes.append(Code('JUMP', label1))
-        codes.append(Code('EMPTY', label=label2))
-        return codes
+        codes.append(Code('JUMP', label2))
+        codes.append(Code('EMPTY', label=label1))
+        return codes, 1, Cmd.CMD_FOR_DOWN_TO, x
 
     def __cond_neq(self, x):
         codes = []
