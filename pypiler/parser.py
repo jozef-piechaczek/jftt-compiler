@@ -114,11 +114,13 @@ class PypilerParser(Parser):
     def command(self, t):
         if self.debug_mode:
             print('command6', end='\n')
+        return self.gen_code(Cmd.CMD_FOR_TO, (t.PIDENTIFIER, t.value0, t.value1, t.commands))
 
     @_('FOR PIDENTIFIER FROM value DOWNTO value DO commands ENDFOR')
     def command(self, t):
         if self.debug_mode:
             print('command7', end='\n')
+        return self.gen_code(Cmd.CMD_FOR_DOWN_TO, (t.PIDENTIFIER, t.value0, t.value1, t.commands))
 
     @_('READ identifier SEMICOLON')
     def command(self, t):

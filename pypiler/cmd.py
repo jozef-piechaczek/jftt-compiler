@@ -31,4 +31,9 @@ class Cmd(enum.Enum):
     CMDS_CMD = 21
     CMD_WHILE = 1007
     CMD_DO_WHILE = 1008
+    CMD_FOR_TO = 1009
+    CMD_FOR_DOWN_TO = 1010
+    EXPR_TIMES = 1011
+    EXPR_DIV = 1012
+    EXPR_MOD = 1013
 

@@ -18,7 +18,7 @@ class Errors:
 # noinspection PyListCreation
 class Utils:
     @staticmethod
-    def gen_value(value):
+    def __gen_abs_value(value):
         codes = []
         codes.append(Code('LOAD', 1))
         bin_str = bin(value)
@@ -31,6 +31,20 @@ class Utils:
                 codes.append(Code('INC'))
             else:
                 raise Exception('incorrect value in bit string')
+        return codes
+
+    @staticmethod
+    def gen_value(value):
+        codes = []
+        if value > 0:
+            codes += Utils.__gen_abs_value(value)
+        elif value == 0:
+            codes.append(Code('SUB', 0))
+        else:
+            codes += Utils.__gen_abs_value(abs(value))
+            codes.append(Code('STORE', 2))
+            codes.append(Code('SUB', 0))
+            codes.append(Code('SUB', 2))
         return codes
 
     @staticmethod
@@ -89,7 +103,7 @@ class PostProcessor:
         for idx in range(len(codes)):
             code = codes[idx]
             if code.name == 'EMPTY':
-                codes[idx + 1].label = code.label  # TODO: kurwa mać
+                codes[idx + 1].label = code.label
                 codes_to_remove.append(code)
         for code in codes_to_remove:
             codes.remove(code)
@@ -178,6 +192,8 @@ class CodeGenerator:
             Cmd.CMD_IF_ELSE: lambda x: self.__cmd_if_else(x),
             Cmd.CMD_WHILE: lambda x: self.__cmd_while(x),
             Cmd.CMD_DO_WHILE: lambda x: self.__cmd_do_while(x),
+            Cmd.CMD_FOR_TO: lambda x: self.__cmd_for_to(x),
+            Cmd.CMD_FOR_DOWN_TO: lambda x: self.__cmd_for_down_to(x),
             Cmd.COND_EQ: lambda x: self.__cond_eq(x),
             Cmd.COND_NEQ: lambda x: self.__cond_neq(x),
             Cmd.COND_GE: lambda x: self.__cond_ge(x),
@@ -280,6 +296,8 @@ class CodeGenerator:
     def __cmd_assign(self, x):
         codes = []
         (identifier, expr) = x
+        if expr is None:
+            raise Exception('expression not implemented')
         if identifier[0] == "STATIC":
             codes += expr
             codes.append(Code('STORE', identifier[1].offset))
@@ -366,6 +384,31 @@ class CodeGenerator:
         codes += condition
         codes.append(Code('JUMP', offset=label1))
         codes.append(Code('EMPTY', label=label2))
+
+    def __cmd_for_to(self, x):
+        codes = []
+        (pid, from_value, to_value, commands) = x
+        elem = self.__sym_tab.get_symbol(pid)
+        label1 = self.__label_maker.get_label()
+        label2 = self.__label_maker.get_label()
+        codes += to_value  # ##
+        codes.append(Code('STORE', 4))  # in p_4 save 'to' value
+        codes += from_value  # ##
+        codes.append(Code('DEC'))
+        codes.append(Code('STORE', elem.offset))   # save 'from' value - 1 in p_j
+        codes.append(Code('LOAD', offset=elem.offset, label=label1))  # ##
+        codes.append(Code('INC'))
+        codes.append(Code('STORE', elem.offset))  # j += 1
+        codes += commands
+        codes.append(Code('LOAD', elem.offset))
+        codes.append(Code('SUB', 4))
+        codes.append(Code('JZERO', label2))
+        codes.append(Code('JUMP', label1))
+        codes.append(Code('EMPTY', label=label2))
+        return codes
+
+    def __cmd_for_down_to(self, x):
+        (pid, from_value, downto_value, commands) = x
 
     def __cond_neq(self, x):
         codes = []
