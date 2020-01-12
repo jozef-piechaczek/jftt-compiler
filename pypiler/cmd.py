@@ -2,13 +2,12 @@ import enum
 
 
 class Cmd(enum.Enum):
-    HALT = 1
+    PROG_HALT = 1
+    PROG_HALT_D = 1006
     DECLARE_ID = 2
     DECLARE_ARRAY = 3
     DECLARE_D_ID = 1003
     DECLARE_D_ARRAY = 1004
-    CMD_ASSIGN = 4
-    CMD_IF_ELSE = 5
     IDENTIFIER = 6
     IDENTIFIER_ARRAY = 7
     IDENTIFIER_NEST = 8
@@ -17,6 +16,9 @@ class Cmd(enum.Enum):
     EXPR_VAL = 9
     EXPR_PLUS = 10
     EXPR_MINUS = 11
+    CMD_ASSIGN = 4
+    CMD_IF_ELSE = 5
+    CMD_IF = 1005
     CMD_READ = 12
     CMD_WRITE = 13
     COND_EQ = 14

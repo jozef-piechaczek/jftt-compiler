@@ -1,6 +1,7 @@
 from sly import Parser
+
+from code_gen import CodeGenerator, Cmd
 from lexer import PypilerLexer
-from code_gen import CodeGenerator, Cmd, Errors, Utils
 
 
 # noinspection PyUnresolvedReferences,PyUnusedLocal
@@ -13,6 +14,8 @@ class PypilerParser(Parser):
     compile_mode = True
 
     precedence = (
+        # ('left', IF, ELSE),
+        # ('left', EQ, NE, LT, LE, GT, GE),
         ('left', PLUS, MINUS),
         ('left', TIMES, DIV, MOD),
     )
@@ -30,13 +33,13 @@ class PypilerParser(Parser):
     def program(self, t):  # halt program
         if self.debug_mode:
             print('program1', end='\n')
-        self.gen_code(Cmd.HALT, (t.declarations, t.commands))
+        self.gen_code(Cmd.PROG_HALT_D, (t.declarations, t.commands))
 
     @_('BEGIN commands END')
     def program(self, t):  # halt program
         if self.debug_mode:
             print('program2', end='\n')
-        self.gen_code(Cmd.HALT, (t.commands, None))
+        self.gen_code(Cmd.PROG_HALT, t.commands)
 
     # declarations
     @_('declarations COMMA PIDENTIFIER')
@@ -87,11 +90,13 @@ class PypilerParser(Parser):
     def command(self, t):
         if self.debug_mode:
             print('command2', end='\n')
+        return self.gen_code(Cmd.CMD_IF_ELSE, (t.condition, t.commands0, t.commands1))
 
     @_('IF condition THEN commands ENDIF')
     def command(self, t):
         if self.debug_mode:
             print('command3', end='\n')
+        return self.gen_code(Cmd.CMD_IF, (t.condition, t.commands))
 
     @_('WHILE condition DO commands ENDWHILE')
     def command(self, t):
@@ -164,32 +169,37 @@ class PypilerParser(Parser):
     def condition(self, t):
         if self.debug_mode:
             print('condition1', end='\n')
+        return self.gen_code(Cmd.COND_EQ, (t.value0, t.value1))
 
     @_('value NEQ value')
     def condition(self, t):
         if self.debug_mode:
             print('condition2', end='\n')
-        self.gen_code(Cmd.COND_NEQ, (t.value0, t.value1))
+        return self.gen_code(Cmd.COND_NEQ, (t.value0, t.value1))
 
     @_('value LE value')
     def condition(self, t):
         if self.debug_mode:
             print('condition3', end='\n')
+        return self.gen_code(Cmd.COND_LE, (t.value0, t.value1))
 
     @_('value GE value')
     def condition(self, t):
         if self.debug_mode:
             print('condition4', end='\n')
+        return self.gen_code(Cmd.COND_GE, (t.value0, t.value1))
 
     @_('value LEQ value')
     def condition(self, t):
         if self.debug_mode:
             print('condition5', end='\n')
+        return self.gen_code(Cmd.COND_LEQ, (t.value0, t.value1))
 
     @_('value GEQ value')
     def condition(self, t):
         if self.debug_mode:
             print('condition6', end='\n')
+        return self.gen_code(Cmd.COND_GEQ, (t.value0, t.value1))
 
     # value
     @_('NUMBER')
