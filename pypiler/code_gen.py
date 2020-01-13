@@ -96,6 +96,7 @@ class LabelMaker:
         return f'l{self.__label_id}'
 
 
+# noinspection PyMethodMayBeStatic
 class PostProcessor:
     def process(self, codes):
         label_map = {}
@@ -473,14 +474,21 @@ class CodeGenerator:
         (from_value_code, from_value_info) = from_value
         (to_value_code, to_value_info) = to_value
         (commands_code, commands_info) = commands
+        nest_level = 1
+        for cmd in commands_info:
+            if cmd[0] == Cmd.CMD_FOR_TO or cmd[0] == Cmd.CMD_FOR_DOWN_TO:
+                if cmd[1] >= nest_level:
+                    nest_level = cmd[1] + 1
+        dyn_elem_id = 50 + nest_level
         elem = self.__sym_tab.get_symbol(pid)
         label1 = self.__label_maker.get_label()
         label2 = self.__label_maker.get_label()
         codes += from_value_code
         codes.append(Code('DEC'))
         codes.append(Code('STORE', elem.offset))
-        to_value_code[0].label = label2
         codes += to_value_code
+        codes.append(Code('STORE', dyn_elem_id))
+        codes.append(Code('LOAD', dyn_elem_id, label=label2))
         codes.append(Code('SUB', elem.offset))
         codes.append(Code('JNEG', label1))
         codes.append(Code('JZERO', label1))
@@ -498,14 +506,21 @@ class CodeGenerator:
         (from_value_code, from_value_info) = from_value
         (downto_value_code, downto_value_info) = downto_value
         (commands_code, commands_info) = commands
+        nest_level = 1
+        for cmd in commands_info:
+            if cmd[0] == Cmd.CMD_FOR_TO or cmd[0] == Cmd.CMD_FOR_DOWN_TO:
+                if cmd[1] >= nest_level:
+                    nest_level = cmd[1] + 1
+        dyn_elem_id = 50 + nest_level
         elem = self.__sym_tab.get_symbol(pid)
         label1 = self.__label_maker.get_label()
         label2 = self.__label_maker.get_label()
         codes += from_value_code
         codes.append(Code('INC'))
         codes.append(Code('STORE', elem.offset))
-        downto_value_code[0].label = label2
         codes += downto_value_code
+        codes.append(Code('STORE', dyn_elem_id))
+        codes.append(Code('LOAD', dyn_elem_id, label=label2))
         codes.append(Code('SUB', elem.offset))
         codes.append(Code('JPOS', label1))
         codes.append(Code('JZERO', label1))
