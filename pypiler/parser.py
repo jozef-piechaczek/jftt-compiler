@@ -163,6 +163,7 @@ class PypilerParser(Parser):
     def expression(self, t):
         if self.debug_mode:
             print('expression5', end='\n')
+        return self.gen_code(Cmd.EXPR_DIV, (t.value0, t.value1))
 
     @_('value MOD value')
     def expression(self, t):

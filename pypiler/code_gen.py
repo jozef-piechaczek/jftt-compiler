@@ -76,9 +76,12 @@ class DataElement:
 
 class Code:
     def __init__(self, name, offset=None, label=None):
+        if label is None:
+            self.label = []
+        else:
+            self.label = [label]
         self.name = name
         self.offset = offset
-        self.label = label
 
     def __str__(self):
         return f'{self.name} {self.offset} {self.label}'
@@ -106,14 +109,15 @@ class PostProcessor:
         for idx in range(len(codes)):
             code = codes[idx]
             if code.name == 'EMPTY':
-                codes[idx + 1].label = code.label
+                codes[idx + 1].label += code.label
                 codes_to_remove.append(code)
         for code in codes_to_remove:
             codes.remove(code)
         for idx in range(len(codes)):
             code = codes[idx]
-            if code.label is not None:
-                label_map[code.label] = idx
+            if len(code.label) > 0:
+                for lbl in code.label:
+                    label_map[lbl] = idx
         for code in codes:
             for label, idx in label_map.items():
                 if code.offset == label:
@@ -366,6 +370,80 @@ class CodeGenerator:
         codes.append(Code('LOAD', 6, label=label1))
         return codes, (Cmd.EXPR_TIMES, value1_info, value1_info)
 
+    def __expr_div(self, x):
+        codes = []
+        (value0, value1) = x
+        (value0_code, value0_info) = value0
+        (value1_code, value1_info) = value1
+        label1 = self.__label_maker.get_label()
+        label2 = self.__label_maker.get_label()
+        label3 = self.__label_maker.get_label()
+        label4 = self.__label_maker.get_label()
+        label5 = self.__label_maker.get_label()
+        label6 = self.__label_maker.get_label()
+        label7 = self.__label_maker.get_label()
+
+        codes += value1_code
+        codes.append(Code('STORE', 11))
+        codes.append(Code('JPOS', offset=label1))
+        codes.append(Code('SUB', 0))
+        codes.append(Code('SUB', 11))
+        codes.append(Code('STORE', 12, label=label1))
+        codes += value0_code
+        codes.append(Code('STORE', 14))
+        codes.append(Code('JPOS', offset=label2))
+        codes.append(Code('SUB', 0))
+        codes.append(Code('SUB', 14))
+        codes.append(Code('STORE', 13, label=label2))
+        codes.append(Code('STORE', 15))
+        codes.append(Code('SUB', 0))
+        codes.append(Code('STORE', 16))
+        codes.append(Code('STORE', 17))
+        codes.append(Code('STORE', 18))
+        codes.append(Code('LOAD', 15, label=label4))
+        codes.append(Code('JZERO', offset=label3))
+        codes.append(Code('SHIFT', 2))
+        codes.append(Code('STORE', 15))
+        codes.append(Code('LOAD', 18))
+        codes.append(Code('INC'))
+        codes.append(Code('STORE', 18))
+        codes.append(Code('JUMP', offset=label4))
+        codes.append(Code('EMPTY', label=label3))
+        codes.append(Code('LOAD', 18, label=label7))
+        codes.append(Code('JZERO', offset=label5))
+        codes.append(Code('DEC'))
+        codes.append(Code('STORE', 18))
+        codes.append(Code('LOAD', 17))
+        codes.append(Code('SHIFT', 1))
+        codes.append(Code('STORE', 17))
+        codes.append(Code('SUB', 0))
+        codes.append(Code('SUB', 18))
+        codes.append(Code('STORE', 19))
+        codes.append(Code('LOAD', 14))
+        codes.append(Code('SHIFT', 19))
+        codes.append(Code('SHIFT', 2))
+        codes.append(Code('STORE', 20))
+        codes.append(Code('LOAD', 14))
+        codes.append(Code('SHIFT', 19))
+        codes.append(Code('INC'))
+        codes.append(Code('SHIFT', 2))
+        codes.append(Code('SUB', 20))
+        codes.append(Code('ADD', 17))
+        codes.append(Code('STORE', 17))
+        codes.append(Code('LOAD', 16))
+        codes.append(Code('SHIFT', 1))
+        codes.append(Code('STORE', 16))
+        codes.append(Code('LOAD', 17))
+        codes.append(Code('SUB', 12))
+        codes.append(Code('JNEG', offset=label6))
+        codes.append(Code('STORE', 17))
+        codes.append(Code('LOAD', 16))
+        codes.append(Code('INC'))
+        codes.append(Code('STORE', 16))
+        codes.append(Code('JUMP', offset=label7, label=label6))
+        codes.append(Code('LOAD', 16, label=label5))
+        return codes, (Cmd.EXPR_DIV, value0_info, value1_info)
+
     def __cmds_cmds(self, x):
         codes = []
         (commands, command) = x
@@ -451,7 +529,7 @@ class CodeGenerator:
         codes += condition_codes
         codes += commands1_codes
         codes.append(Code('JUMP', offset=label2))
-        commands2_codes[0].label = label1
+        commands2_codes[0].label = [label1]
         codes += commands2_codes
         codes.append(Code('EMPTY', label=label2))
         return codes, (Cmd.CMD_IF_ELSE, 0, condition_info, commands1_info, commands2_info)
@@ -463,7 +541,7 @@ class CodeGenerator:
         (commands_codes, commands_info) = commands
         label1 = self.__label_maker.get_label()
         label2 = self.__label_maker.get_label()
-        condition_codes[0].label = label2
+        condition_codes[0].label = [label2]
         Utils.give_offset_label(condition_codes, label1)
         codes += condition_codes
         codes += commands_codes
@@ -478,7 +556,7 @@ class CodeGenerator:
         (commands_codes, commands_info) = commands
         label1 = self.__label_maker.get_label()
         label2 = self.__label_maker.get_label()
-        commands_codes[0].label = label1
+        commands_codes[0].label = [label1]
         codes += commands_codes
         Utils.give_offset_label(condition_codes, label2)
         codes += condition_codes
@@ -492,6 +570,7 @@ class CodeGenerator:
         (from_value_code, from_value_info) = from_value
         (to_value_code, to_value_info) = to_value
         (commands_code, commands_info) = commands
+
         nest_level = 1
         for cmd in commands_info:
             if cmd[0] == Cmd.CMD_FOR_TO or cmd[0] == Cmd.CMD_FOR_DOWN_TO:
@@ -501,6 +580,7 @@ class CodeGenerator:
         elem = self.__sym_tab.get_symbol(pid)
         label1 = self.__label_maker.get_label()
         label2 = self.__label_maker.get_label()
+
         codes += from_value_code
         codes.append(Code('DEC'))
         codes.append(Code('STORE', elem.offset))
@@ -518,12 +598,15 @@ class CodeGenerator:
         codes.append(Code('EMPTY', label=label1))
         return codes, (Cmd.CMD_FOR_TO, nest_level, pid, from_value_info, to_value_info, commands_info)
 
+    # **************** CONDITIONS ****************
+
     def __cmd_for_down_to(self, x):
         codes = []
         (pid, from_value, downto_value, commands) = x
         (from_value_code, from_value_info) = from_value
         (downto_value_code, downto_value_info) = downto_value
         (commands_code, commands_info) = commands
+
         nest_level = 1
         for cmd in commands_info:
             if cmd[0] == Cmd.CMD_FOR_TO or cmd[0] == Cmd.CMD_FOR_DOWN_TO:
@@ -533,6 +616,7 @@ class CodeGenerator:
         elem = self.__sym_tab.get_symbol(pid)
         label1 = self.__label_maker.get_label()
         label2 = self.__label_maker.get_label()
+
         codes += from_value_code
         codes.append(Code('INC'))
         codes.append(Code('STORE', elem.offset))
@@ -550,13 +634,12 @@ class CodeGenerator:
         codes.append(Code('EMPTY', label=label1))
         return codes, (Cmd.CMD_FOR_DOWN_TO, nest_level, pid, from_value_info, downto_value_info, commands_info)
 
-    # **************** CONDITIONS ****************
-
     def __cond_neq(self, x):
         codes = []
         (value0, value1) = x
         (value0_code, value0_info) = value0
         (value1_code, value1_info) = value1
+
         codes += value1_code
         codes.append(Code('STORE', 5))
         codes += value0_code
@@ -569,6 +652,7 @@ class CodeGenerator:
         (value0, value1) = x
         (value0_code, value0_info) = value0
         (value1_code, value1_info) = value1
+
         codes += value1_code
         codes.append(Code('STORE', 5))
         codes += value0_code
@@ -582,6 +666,7 @@ class CodeGenerator:
         (value0, value1) = x
         (value0_code, value0_info) = value0
         (value1_code, value1_info) = value1
+
         codes += value1_code
         codes.append(Code('STORE', 5))
         codes += value0_code
@@ -595,6 +680,7 @@ class CodeGenerator:
         (value0, value1) = x
         (value0_code, value0_info) = value0
         (value1_code, value1_info) = value1
+
         codes += value1_code
         codes.append(Code('STORE', 5))
         codes += value0_code
@@ -627,5 +713,5 @@ class CodeGenerator:
         codes.append(Code('JPOS'))
         return codes, (Cmd.COND_LEQ, value0_info, value1_info)
 
-    def __expr_div(self, x):
+    def __expr_mod(self, x):
         pass
