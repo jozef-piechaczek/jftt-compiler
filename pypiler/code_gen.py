@@ -395,6 +395,7 @@ class CodeGenerator:
         codes.append(Code('SUB', 11))
         codes.append(Code('STORE', 12, label=label1))
         codes += value0_code
+        codes.append(Code('JZERO', offset=label8))
         codes.append(Code('STORE', 13))
         codes.append(Code('JPOS', offset=label2))
         codes.append(Code('SUB', 0))
@@ -447,9 +448,6 @@ class CodeGenerator:
         codes.append(Code('STORE', 16))
         codes.append(Code('JUMP', offset=label7, label=label6))
         codes.append(Code('LOAD', 16, label=label5))
-        codes.append(Code('JUMP', offset=label9))
-        codes.append(Code('SUB', 0, label=label8))
-        codes.append(Code('EMPTY', label=label9))
         codes.append(Code('LOAD', 13))
         codes.append(Code('JNEG', offset=label10))
         codes.append(Code('LOAD', 11))
@@ -468,6 +466,9 @@ class CodeGenerator:
         codes.append(Code('DEC'))
         codes.append(Code('STORE', 16))
         codes.append(Code('LOAD', 16, label=label11))
+        codes.append(Code('JUMP', offset=label9))
+        codes.append(Code('SUB', 0, label=label8))
+        codes.append(Code('EMPTY', label=label9))
         return codes, (Cmd.EXPR_DIV, value0_info, value1_info)
 
     def __expr_mod(self, x):
