@@ -169,6 +169,7 @@ class PypilerParser(Parser):
     def expression(self, t):
         if self.debug_mode:
             print('expression6', end='\n')
+        return self.gen_code(Cmd.EXPR_MOD, (t.value0, t.value1))
 
     # condition
     @_('value EQ value')

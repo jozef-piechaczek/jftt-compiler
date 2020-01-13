@@ -3,7 +3,7 @@ import sys
 
 lexer = PypilerLexer()
 parser = PypilerParser()
-path_in = '../vm/my_example/7.imp'
+path_in = '../vm/examples/program1.imp'
 path_out = path_in[:len(path_in)-3] + 'mr'
 with open(path_in) as file:
     text = file.read()
