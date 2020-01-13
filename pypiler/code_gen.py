@@ -48,10 +48,10 @@ class Utils:
         return codes
 
     @staticmethod
-    def load_dyn_variable(elem1, elem2):  # elem1 - n, elem2 - j
+    def load_dyn_variable(offset1, offset2):  # elem1 - n, elem2 - j
         codes = []
-        codes.append(Code('LOAD', elem1.offset))
-        codes.append(Code('ADD', elem2.offset))
+        codes.append(Code('LOAD', offset1))
+        codes.append(Code('ADD', offset2))
         return codes
 
     @staticmethod
@@ -64,9 +64,11 @@ class Utils:
 
 
 class DataElement:
-    def __init__(self, name, offset):
+    def __init__(self, name, offset, array=False, array_dyn=None):
         self.name = name
         self.offset = offset
+        self.array = array
+        self.array_dyn = array_dyn
 
     def __str__(self):
         return f'name:{self.name} offset:{self.offset}'
@@ -123,6 +125,7 @@ class PostProcessor:
         for idx in range(len(codes)):
             code = codes[idx]
             print(code.code_str())
+            # string_codes.append(str(code))
             string_codes.append(code.code_str())
         return string_codes
 
@@ -134,23 +137,26 @@ class SymbolTable:
     def put_symbol(self, name):
         if self.__check_if_exists(name):
             Errors.declare_err_redefine(name)
+            return [], ()
         else:
-            self.__data.append(DataElement(name, self.__data_offset))
+            elem = DataElement(name, self.__data_offset, array=False)
+            self.__data.append(elem)
             self.__data_offset += 1
+            return [], elem
 
     def put_array(self, name, begin, end):
         if self.__check_if_exists(name):
             Errors.declare_err_redefine(name)
-            return []
+            return [], ()
         else:
-            self.__data.append(DataElement(name, self.__data_offset))
-            codes = Utils.gen_value(self.__data_offset - begin + 1)
+            array_dyn = self.__data_offset - begin + 1
+            elem = DataElement(name, self.__data_offset, array=True, array_dyn=array_dyn)
+            self.__data.append(elem)
+            codes = Utils.gen_value(array_dyn)
             codes.append(Code('STORE', self.__data_offset))
             self.__data_offset += 1
-            for idx in range(begin, end + 1):
-                self.__data.append(DataElement(name=f'{name}{idx}', offset=self.__data_offset))
-                self.__data_offset += 1
-            return codes
+            self.__data_offset += (end - begin + 1)
+            return codes, elem
 
     def __check_if_exists(self, name):
         for elem in self.__data:
@@ -158,12 +164,16 @@ class SymbolTable:
                 return True
         return False
 
-    def get_symbol(self, name):
+    def get_symbol(self, name, is_array=False, errors=False):
         for elem in self.__data:
-            if elem.name == name:
+            if elem.name == name:  # TODO
                 return elem
-        Errors.identifier_not_declared(name)
-        return None
+        if errors:
+            Errors.identifier_not_declared(name)
+            return None
+        else:
+            (elem_code, elem_info) = self.put_symbol(name)
+            return elem_info
 
 
 # noinspection PyMethodMayBeStatic,DuplicatedCode
@@ -191,6 +201,7 @@ class CodeGenerator:
             Cmd.EXPR_PLUS: lambda x: self.__expr_plus(x),
             Cmd.EXPR_MINUS: lambda x: self.__expr_minus(x),
             Cmd.EXPR_TIMES: lambda x: self.__expr_times(x),
+            Cmd.EXPR_DIV: lambda x: self.__expr_div(x),
             Cmd.CMD_ASSIGN: lambda x: self.__cmd_assign(x),
             Cmd.CMD_WRITE: lambda x: self.__cmd_write(x),
             Cmd.CMD_READ: lambda x: self.__cmd_read(x),
@@ -233,56 +244,61 @@ class CodeGenerator:
         return string_codes
 
     def __declare(self, x):
-        self.__sym_tab.put_symbol(name=x)
-        return [], (Cmd.DECL_ID, x)
+        (codes, elem) = self.__sym_tab.put_symbol(name=x)
+        return codes, (Cmd.DECL_ID, elem)
 
     def __declare_array(self, x):
         (name, begin, end) = x
-        code_list = self.__sym_tab.put_array(name=name, begin=begin, end=end)
-        return code_list, (Cmd.DECL_ARRAY, name, begin, end)
+        (codes, elem) = self.__sym_tab.put_array(name=name, begin=begin, end=end)
+        return codes, (Cmd.DECL_ARRAY, elem)
 
     def __declare_d(self, x):
+        codes = []
         (declarations, pidentifier) = x
         (declarations_code, declarations_info) = declarations
-        self.__sym_tab.put_symbol(name=pidentifier)
-        return declarations_code, (Cmd.DECL_D_ID, declarations_info, pidentifier)
+        (symbol_codes, symbol_info) = self.__sym_tab.put_symbol(name=pidentifier)
+        codes += declarations_code
+        codes += symbol_codes
+        return codes, (Cmd.DECL_D_ID, declarations_info, symbol_info)
 
     def __declare_d_array(self, x):
         codes = []
         (declarations, name, begin, end) = x
         (declarations_code, declarations_info) = declarations
+        (array_codes, array_info) = self.__sym_tab.put_array(name=name, begin=begin, end=end)
         codes += declarations_code
-        codes += self.__sym_tab.put_array(name=name, begin=begin, end=end)
-        return codes, (Cmd.DECL_D_ARRAY, declarations, begin, end, name)
+        codes += array_codes
+        return codes, (Cmd.DECL_D_ARRAY, declarations_info, array_info)
 
     def __identifier(self, x):
-        elem = self.__sym_tab.get_symbol(x)
-        return [], ("STATIC", elem)
+        name = x
+        elem = self.__sym_tab.get_symbol(name, is_array=False)
+        return [], ('SYMBOL', elem.offset)
 
     def __identifier_array(self, x):
         (name, idx) = x
-        elem = self.__sym_tab.get_symbol(f'{name}{idx}')
-        return [], ("STATIC", elem)
+        elem = self.__sym_tab.get_symbol(name, is_array=True)
+        return [], ('ARRAY', elem.array_dyn + idx)
 
     def __identifier_nest(self, x):
-        (name1, name2) = x
-        elem1 = self.__sym_tab.get_symbol(name1)
-        elem2 = self.__sym_tab.get_symbol(name2)
-        return [], ("DYNAMIC", elem1, elem2)
+        (name0, name1) = x
+        elem1 = self.__sym_tab.get_symbol(name1, is_array=False)
+        elem0 = self.__sym_tab.get_symbol(name0, is_array=True)
+        return [], ('ARRAY_NEST', elem0.offset, elem1.offset)
 
     def __value_identifier(self, x):
         codes = []
-        (x_codes, x_info) = x
-        if x_info[0] == "STATIC":
-            codes.append(Code('LOAD', x_info[1].offset))
-        elif x_info[0] == "DYNAMIC":
-            get_addr = Utils.load_dyn_variable(x_info[1], x_info[2])
-            codes += get_addr
+        (id_codes, id_info) = x
+        if id_info[0] == 'SYMBOL' or id_info[0] == 'ARRAY':
+            codes.append(Code('LOAD', id_info[1]))
+        elif id_info[0] == 'ARRAY_NEST':
+            codes.append(Code('LOAD', id_info[1]))
+            codes.append(Code('ADD', id_info[2]))
             codes.append(Code('STORE', 3))
             codes.append(Code('LOADI', 3))
         else:
             raise Exception('incorrect identifier type')
-        return codes, (Cmd.VAL_ID, x_info)
+        return codes, (Cmd.VAL_ID, id_info)
 
     def __value_number(self, x):
         codes = Utils.gen_value(x)
@@ -368,39 +384,41 @@ class CodeGenerator:
 
     def __cmd_assign(self, x):
         codes = []
-        (identifier, expr) = x
-        (identifier_code, identifier_info) = identifier
+        (idtf, expr) = x
+        (idtf_code, idtf_info) = idtf
         (expr_code, expr_info) = expr
         if expr is None:
             raise Exception('expression not implemented')
-        if identifier_info[0] == "STATIC":
+        if idtf_info[0] == 'SYMBOL' or idtf_info[0] == 'ARRAY':
             codes += expr_code
-            codes.append(Code('STORE', identifier_info[1].offset))
-        elif identifier_info[0] == "DYNAMIC":
-            get_addr = Utils.load_dyn_variable(identifier_info[1], identifier_info[2])
-            get_addr.append(Code('STORE', 3))
-            codes += get_addr
+            codes.append(Code('STORE', idtf_info[1]))
+        elif idtf_info[0] == 'ARRAY_NEST':
             codes += expr_code
+            codes.append(Code('STORE', 40))
+            codes.append(Code('LOAD', idtf_info[1]))
+            codes.append(Code('ADD', idtf_info[2]))
+            codes.append(Code('STORE', 3))
+            codes.append(Code('LOAD', 40))
             codes.append(Code('STOREI', 3))
         else:
             raise Exception('incorrect identifier type')
-        return codes, (Cmd.CMD_ASSIGN, 0, identifier_info, expr_info)
+        return codes, (Cmd.CMD_ASSIGN, 0, idtf_info, expr_info)
 
     def __cmd_read(self, x):
         codes = []
-        (identifier_code, identifier_info) = x
-        if identifier_info[0] == "STATIC":
+        (idtf_code, idtf_info) = x
+        if idtf_info[0] == 'SYMBOL' or idtf_info[0] == 'ARRAY':
             codes.append(Code('GET'))
-            codes.append(Code('STORE', identifier_info[1].offset))
-        elif identifier_info[0] == "DYNAMIC":
-            get_addr = Utils.load_dyn_variable(identifier_info[1], identifier_info[2])
-            get_addr.append(Code('STORE', 3))
-            codes += get_addr
+            codes.append(Code('STORE', idtf_info[1]))
+        elif idtf_info[0] == 'ARRAY_NEST':
+            codes.append(Code('LOAD', idtf_info[1]))
+            codes.append(Code('ADD', idtf_info[2]))
+            codes.append(Code('STORE', 3))
             codes.append(Code('GET'))
             codes.append(Code('STOREI', 3))
         else:
             raise Exception('incorrect identifier type')
-        return codes, (Cmd.CMD_READ, 0, identifier_info)
+        return codes, (Cmd.CMD_READ, 0, idtf_info)
 
     def __cmd_write(self, x):
         codes = []
@@ -498,7 +516,7 @@ class CodeGenerator:
         codes += commands_code
         codes.append(Code('JUMP', label2))
         codes.append(Code('EMPTY', label=label1))
-        return codes, (Cmd.CMD_FOR_TO, 1, pid, from_value_info, to_value_info, commands_info)
+        return codes, (Cmd.CMD_FOR_TO, nest_level, pid, from_value_info, to_value_info, commands_info)
 
     def __cmd_for_down_to(self, x):
         codes = []
@@ -530,7 +548,8 @@ class CodeGenerator:
         codes += commands_code
         codes.append(Code('JUMP', label2))
         codes.append(Code('EMPTY', label=label1))
-        return codes, (Cmd.CMD_FOR_DOWN_TO, 1, pid, from_value_info, downto_value_info, commands_info)
+        return codes, (Cmd.CMD_FOR_DOWN_TO, nest_level, pid, from_value_info, downto_value_info, commands_info)
+
     # **************** CONDITIONS ****************
 
     def __cond_neq(self, x):
@@ -607,3 +626,6 @@ class CodeGenerator:
         codes.append(Code('SUB', 5))
         codes.append(Code('JPOS'))
         return codes, (Cmd.COND_LEQ, value0_info, value1_info)
+
+    def __expr_div(self, x):
+        pass
