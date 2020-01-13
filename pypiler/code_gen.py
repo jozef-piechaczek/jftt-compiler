@@ -382,19 +382,24 @@ class CodeGenerator:
         label5 = self.__label_maker.get_label()
         label6 = self.__label_maker.get_label()
         label7 = self.__label_maker.get_label()
+        label8 = self.__label_maker.get_label()
+        label9 = self.__label_maker.get_label()
+        label10 = self.__label_maker.get_label()
+        label11 = self.__label_maker.get_label()
 
         codes += value1_code
+        codes.append(Code('JZERO', offset=label8))
         codes.append(Code('STORE', 11))
         codes.append(Code('JPOS', offset=label1))
         codes.append(Code('SUB', 0))
         codes.append(Code('SUB', 11))
         codes.append(Code('STORE', 12, label=label1))
         codes += value0_code
-        codes.append(Code('STORE', 14))
+        codes.append(Code('STORE', 13))
         codes.append(Code('JPOS', offset=label2))
         codes.append(Code('SUB', 0))
-        codes.append(Code('SUB', 14))
-        codes.append(Code('STORE', 13, label=label2))
+        codes.append(Code('SUB', 13))
+        codes.append(Code('STORE', 14, label=label2))
         codes.append(Code('STORE', 15))
         codes.append(Code('SUB', 0))
         codes.append(Code('STORE', 16))
@@ -442,7 +447,31 @@ class CodeGenerator:
         codes.append(Code('STORE', 16))
         codes.append(Code('JUMP', offset=label7, label=label6))
         codes.append(Code('LOAD', 16, label=label5))
+        codes.append(Code('JUMP', offset=label9))
+        codes.append(Code('SUB', 0, label=label8))
+        codes.append(Code('EMPTY', label=label9))
+        codes.append(Code('LOAD', 13))
+        codes.append(Code('JNEG', offset=label10))
+        codes.append(Code('LOAD', 11))
+        codes.append(Code('JPOS', offset=label10))
+        codes.append(Code('SUB', 0))
+        codes.append(Code('SUB', 16))
+        codes.append(Code('DEC'))
+        codes.append(Code('STORE', 16))
+        codes.append(Code('JUMP', offset=label11))
+        codes.append(Code('LOAD', 13, label=label10))
+        codes.append(Code('JPOS', offset=label11))
+        codes.append(Code('LOAD', 11))
+        codes.append(Code('JNEG', offset=label11))
+        codes.append(Code('SUB', 0))
+        codes.append(Code('SUB', 16))
+        codes.append(Code('DEC'))
+        codes.append(Code('STORE', 16))
+        codes.append(Code('LOAD', 16, label=label11))
         return codes, (Cmd.EXPR_DIV, value0_info, value1_info)
+
+    def __expr_mod(self, x):
+        pass
 
     def __cmds_cmds(self, x):
         codes = []
@@ -564,6 +593,8 @@ class CodeGenerator:
         codes.append(Code('EMPTY', label=label2))
         return codes, (Cmd.CMD_DO_WHILE, 0, condition_info, commands_info)
 
+    # **************** CONDITIONS ****************
+
     def __cmd_for_to(self, x):
         codes = []
         (pid, from_value, to_value, commands) = x
@@ -597,8 +628,6 @@ class CodeGenerator:
         codes.append(Code('JUMP', label2))
         codes.append(Code('EMPTY', label=label1))
         return codes, (Cmd.CMD_FOR_TO, nest_level, pid, from_value_info, to_value_info, commands_info)
-
-    # **************** CONDITIONS ****************
 
     def __cmd_for_down_to(self, x):
         codes = []
@@ -712,6 +741,3 @@ class CodeGenerator:
         codes.append(Code('SUB', 5))
         codes.append(Code('JPOS'))
         return codes, (Cmd.COND_LEQ, value0_info, value1_info)
-
-    def __expr_mod(self, x):
-        pass
