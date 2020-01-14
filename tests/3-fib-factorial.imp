@@ -22,6 +22,5 @@ BEGIN
     ENDFOR
     WRITE s(n);
     WRITE f(n);
-    WRITE i(n);
 END
 
