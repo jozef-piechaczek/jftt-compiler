@@ -14,6 +14,10 @@ class Errors:
     def identifier_not_assigned(name):
         print(f'ERROR: identifier {name} has no value assigned')
 
+    @staticmethod
+    def incorrect_array_bounds(name, begin, end):
+        print(f'ERROR: incorrect array {name} bounds: {end} < {begin}')
+
 
 class Utils:
     @staticmethod
@@ -247,9 +251,16 @@ class CodeGenerator:
         return codes, (Cmd.DECL_ID, elem)
 
     def __declare_array(self, x):
+        codes = []
         (name, begin, end) = x
-        (codes, elem) = self.__sym_tab.put_array(name=name, begin=begin, end=end)
-        return codes, (Cmd.DECL_ARRAY, elem)
+
+        array_info = None
+        if end < begin:
+            Errors.incorrect_array_bounds(name, begin, end)
+        else:
+            (array_codes, array_info) = self.__sym_tab.put_array(name=name, begin=begin, end=end)
+            codes += array_codes
+        return codes, (Cmd.DECL_ARRAY, array_info)
 
     def __declare_d(self, x):
         codes = []
@@ -258,16 +269,21 @@ class CodeGenerator:
         (symbol_codes, symbol_info) = self.__sym_tab.put_symbol(name=pidentifier)
         codes += declarations_code
         codes += symbol_codes
-        return codes, (Cmd.DECL_D_ID, declarations_info, symbol_info)
+        return codes, (Cmd.DECL_D_ID, symbol_info, declarations_info)
 
     def __declare_d_array(self, x):
         codes = []
         (declarations, name, begin, end) = x
         (declarations_code, declarations_info) = declarations
-        (array_codes, array_info) = self.__sym_tab.put_array(name=name, begin=begin, end=end)
+
+        array_info = None
         codes += declarations_code
-        codes += array_codes
-        return codes, (Cmd.DECL_D_ARRAY, declarations_info, array_info)
+        if end < begin:
+            Errors.incorrect_array_bounds(name, begin, end)
+        else:
+            (array_codes, array_info) = self.__sym_tab.put_array(name=name, begin=begin, end=end)
+            codes += array_codes
+        return codes, (Cmd.DECL_D_ARRAY, array_info, declarations_info)
 
     def __identifier(self, x):
         name = x
