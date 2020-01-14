@@ -1,5 +1,4 @@
 from parser import PypilerParser, PypilerLexer
-import sys
 
 lexer = PypilerLexer()
 parser = PypilerParser()

@@ -124,8 +124,7 @@ class PostProcessor:
         string_codes = []
         for idx in range(len(codes)):
             code = codes[idx]
-            print(code.code_str())
-            # string_codes.append(str(code))
+            # print(code.code_str())
             string_codes.append(code.code_str())
         return string_codes
 
