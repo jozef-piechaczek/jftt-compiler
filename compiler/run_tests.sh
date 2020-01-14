@@ -1,6 +1,6 @@
 #!/bin/bash
-FILES=../vm/tests/*.imp
-RESULTS=../vm/tests/results/
+FILES=../tests/*.imp
+RESULTS=../tests/results/
 for f in $FILES
 do
     name=$(basename -- $f)
