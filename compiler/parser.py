@@ -14,8 +14,6 @@ class PypilerParser(Parser):
     compile_mode = True
 
     precedence = (
-        # ('left', IF, ELSE),
-        # ('left', EQ, NE, LT, LE, GT, GE),
         ('left', PLUS, MINUS),
         ('left', TIMES, DIV, MOD),
     )
@@ -27,8 +25,9 @@ class PypilerParser(Parser):
         if self.compile_mode:
             return self.code_gen.gen_code(code, param)
 
-    # **************** RULES ****************
-    # program
+    # *********************** RULES ***********************
+
+    # *********************** PROGRAM ***********************
     @_('DECLARE declarations BEGIN commands END')
     def program(self, t):  # halt program
         if self.debug_mode:
@@ -41,7 +40,7 @@ class PypilerParser(Parser):
             print('program2', end='\n')
         return self.gen_code(Cmd.PROG_HALT, t.commands)
 
-    # declarations
+    # *********************** DECLARATIONS ***********************
     @_('declarations COMMA PIDENTIFIER')
     def declarations(self, t):  # declare pidentifier
         if self.debug_mode:
@@ -66,7 +65,7 @@ class PypilerParser(Parser):
             print('declarations4', end='\n')
         return self.gen_code(Cmd.DECL_ARRAY, (t.PIDENTIFIER, int(t.NUMBER0), int(t.NUMBER1)))
 
-    # commands
+    # *********************** COMMANDS ***********************
     @_('commands command')
     def commands(self, t):
         if self.debug_mode:
@@ -79,7 +78,7 @@ class PypilerParser(Parser):
             print('commands2', end='\n')
         return self.gen_code(Cmd.CMDS_CMD, t.command)
 
-    # command
+    # *********************** COMMAND ***********************
     @_('identifier ASSIGN expression SEMICOLON')
     def command(self, t):  # assign
         if self.debug_mode:
@@ -110,17 +109,17 @@ class PypilerParser(Parser):
             print('command5', end='\n')
         return self.gen_code(Cmd.CMD_DO_WHILE, (t.commands, t.condition))
 
-    @_('FOR PIDENTIFIER FROM value TO value DO commands ENDFOR')
+    @_('FOR foridentifier FROM value TO value DO commands ENDFOR')
     def command(self, t):
         if self.debug_mode:
             print('command6', end='\n')
-        return self.gen_code(Cmd.CMD_FOR_TO, (t.PIDENTIFIER, t.value0, t.value1, t.commands))
+        return self.gen_code(Cmd.CMD_FOR_TO, (t.foridentifier, t.value0, t.value1, t.commands))
 
-    @_('FOR PIDENTIFIER FROM value DOWNTO value DO commands ENDFOR')
+    @_('FOR foridentifier FROM value DOWNTO value DO commands ENDFOR')
     def command(self, t):
         if self.debug_mode:
             print('command7', end='\n')
-        return self.gen_code(Cmd.CMD_FOR_DOWN_TO, (t.PIDENTIFIER, t.value0, t.value1, t.commands))
+        return self.gen_code(Cmd.CMD_FOR_DOWN_TO, (t.foridentifier, t.value0, t.value1, t.commands))
 
     @_('READ identifier SEMICOLON')
     def command(self, t):
@@ -134,7 +133,7 @@ class PypilerParser(Parser):
             print('command9', end='\n')
         return self.gen_code(Cmd.CMD_WRITE, t.value)
 
-    # expression
+    # *********************** EXPRESSION ***********************
     @_('value')
     def expression(self, t):
         if self.debug_mode:
@@ -171,7 +170,7 @@ class PypilerParser(Parser):
             print('expression6', end='\n')
         return self.gen_code(Cmd.EXPR_MOD, (t.value0, t.value1))
 
-    # condition
+    # *********************** CONDITION ***********************
     @_('value EQ value')
     def condition(self, t):
         if self.debug_mode:
@@ -208,7 +207,7 @@ class PypilerParser(Parser):
             print('condition6', end='\n')
         return self.gen_code(Cmd.COND_GEQ, (t.value0, t.value1))
 
-    # value
+    # *********************** VALUE ***********************
     @_('NUMBER')
     def value(self, t):
         if self.debug_mode:
@@ -221,7 +220,7 @@ class PypilerParser(Parser):
             print('value2', end='\n')
         return self.gen_code(Cmd.VAL_ID, t.identifier)
 
-    # identifier
+    # *********************** IDENTIFIER ***********************
     @_('PIDENTIFIER')
     def identifier(self, t):
         if self.debug_mode:
@@ -239,3 +238,10 @@ class PypilerParser(Parser):
         if self.debug_mode:
             print('identifier3', end='\n')
         return self.gen_code(Cmd.IDENTIFIER_ARRAY, (t.PIDENTIFIER, int(t.NUMBER)))
+
+    # *********************** FOR_IDENTIFIER ***********************
+    @_('PIDENTIFIER')
+    def foridentifier(self, t):
+        if self.debug_mode:
+            print('foridentifier1')
+        return self.gen_code(Cmd.FORIDENTIFIER, t.PIDENTIFIER)

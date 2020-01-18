@@ -14,10 +14,10 @@ BEGIN
     s(1) ASSIGN 1;
     i(1) ASSIGN 1;
     FOR j FROM 2 TO n DO
-	k ASSIGN j MINUS 1;
+	    k ASSIGN j MINUS 1;
         l ASSIGN k MINUS 1;
-	i(j) ASSIGN i(k) PLUS 1;
-	f(j) ASSIGN f(k) PLUS f(l);
+	    i(j) ASSIGN i(k) PLUS 1;
+	    f(j) ASSIGN f(k) PLUS f(l);
         s(j) ASSIGN s(k) TIMES i(j);
     ENDFOR
     WRITE s(n);

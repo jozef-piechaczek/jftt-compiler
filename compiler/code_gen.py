@@ -1,22 +1,28 @@
+import sys
+
 from cmd import Cmd
 
 
 class Errors:
     @staticmethod
     def declare_err_redefine(name):
-        print(f'ERROR: variable {name} redefined')
+        print(f'WARNING: variable {name} redefined', file=sys.stderr)
+        # exit(1)
 
     @staticmethod
     def identifier_not_declared(name):
-        print(f'ERROR: identifier {name} not declared or is an array')
+        print(f'ERROR: identifier {name} not declared or is an array', file=sys.stderr)
+        exit(2)
 
     @staticmethod
     def identifier_not_assigned(name):
-        print(f'ERROR: identifier {name} has no value assigned')
+        print(f'ERROR: identifier {name} has no value assigned', file=sys.stderr)
+        exit(3)
 
     @staticmethod
     def incorrect_array_bounds(name, begin, end):
-        print(f'ERROR: incorrect array {name} bounds: {end} < {begin}')
+        print(f'ERROR: incorrect array {name} bounds: {end} < {begin}', file=sys.stderr)
+        exit(4)
 
 
 class Utils:
@@ -128,7 +134,6 @@ class PostProcessor:
         string_codes = []
         for idx in range(len(codes)):
             code = codes[idx]
-            # print(code.code_str())
             string_codes.append(code.code_str())
         return string_codes
 
@@ -167,16 +172,14 @@ class SymbolTable:
                 return True
         return False
 
-    def get_symbol(self, name, is_array=False, errors=False):
+    def get_symbol(self, name, is_array=False, errors=True):
+        ret = None
         for elem in self.__data:
-            if elem.name == name:  # TODO
-                return elem
-        if errors:
+            if elem.name == name and elem.array == is_array:
+                ret = elem
+        if ret is None and errors is True:
             Errors.identifier_not_declared(name)
-            return None
-        else:
-            (elem_code, elem_info) = self.put_symbol(name)
-            return elem_info
+        return ret
 
 
 # noinspection PyMethodMayBeStatic
@@ -222,6 +225,7 @@ class CodeGenerator:
             Cmd.COND_LEQ: lambda x: self.__cond_leq(x),
             Cmd.CMDS_CMDS: lambda x: self.__cmds_cmds(x),
             Cmd.CMDS_CMD: lambda x: self.__cmds_cmd(x),
+            Cmd.FORIDENTIFIER: lambda x: self.__foridentifier(x),
         }[code](param)
 
     # noinspection PyUnusedLocal
@@ -634,7 +638,7 @@ class CodeGenerator:
             codes.append(Code('GET'))
             codes.append(Code('STOREI', 3))
         else:
-            raise Exception('incorrect identifier type')
+            raise Exception('COMPILER_ERROR: incorrect identifier type')
         return codes, (Cmd.CMD_READ, 0, idtf_info)
 
     def __cmd_write(self, x):
@@ -704,74 +708,81 @@ class CodeGenerator:
         return codes, (Cmd.CMD_DO_WHILE, 0, condition_info, commands_info)
 
     # **************** CONDITIONS ****************
-
     def __cmd_for_to(self, x):
         codes = []
-        (pid, from_value, to_value, commands) = x
+        (identifier, from_value, to_value, commands) = x
+
+        (identifier_code, identifier_info) = identifier
         (from_value_code, from_value_info) = from_value
         (to_value_code, to_value_info) = to_value
         (commands_code, commands_info) = commands
 
+        (_, offset) = identifier_info
+
         nest_level = 1
         for cmd in commands_info:
             if cmd[0] == Cmd.CMD_FOR_TO or cmd[0] == Cmd.CMD_FOR_DOWN_TO:
                 if cmd[1] >= nest_level:
                     nest_level = cmd[1] + 1
         dyn_elem_id = 50 + nest_level
-        elem = self.__sym_tab.get_symbol(pid)
+
         label1 = self.__label_maker.get_label()
         label2 = self.__label_maker.get_label()
 
         codes += from_value_code
         codes.append(Code('DEC'))
-        codes.append(Code('STORE', elem.offset))
+        codes.append(Code('STORE', offset))
         codes += to_value_code
         codes.append(Code('STORE', dyn_elem_id))
         codes.append(Code('LOAD', dyn_elem_id, label=label2))
-        codes.append(Code('SUB', elem.offset))
+        codes.append(Code('SUB', offset))
         codes.append(Code('JNEG', label1))
         codes.append(Code('JZERO', label1))
-        codes.append(Code('LOAD', elem.offset))
+        codes.append(Code('LOAD', offset))
         codes.append(Code('INC'))
-        codes.append(Code('STORE', elem.offset))
+        codes.append(Code('STORE', offset))
         codes += commands_code
         codes.append(Code('JUMP', label2))
         codes.append(Code('EMPTY', label=label1))
-        return codes, (Cmd.CMD_FOR_TO, nest_level, pid, from_value_info, to_value_info, commands_info)
+        return codes, (Cmd.CMD_FOR_TO, nest_level, identifier, from_value_info, to_value_info, commands_info)
 
     def __cmd_for_down_to(self, x):
         codes = []
-        (pid, from_value, downto_value, commands) = x
+        (identifier, from_value, downto_value, commands) = x
+
+        (identifier_code, identifier_info) = identifier
         (from_value_code, from_value_info) = from_value
         (downto_value_code, downto_value_info) = downto_value
         (commands_code, commands_info) = commands
 
+        (_, offset) = identifier_info
+
         nest_level = 1
         for cmd in commands_info:
             if cmd[0] == Cmd.CMD_FOR_TO or cmd[0] == Cmd.CMD_FOR_DOWN_TO:
                 if cmd[1] >= nest_level:
                     nest_level = cmd[1] + 1
         dyn_elem_id = 50 + nest_level
-        elem = self.__sym_tab.get_symbol(pid)
+
         label1 = self.__label_maker.get_label()
         label2 = self.__label_maker.get_label()
 
         codes += from_value_code
         codes.append(Code('INC'))
-        codes.append(Code('STORE', elem.offset))
+        codes.append(Code('STORE', offset))
         codes += downto_value_code
         codes.append(Code('STORE', dyn_elem_id))
         codes.append(Code('LOAD', dyn_elem_id, label=label2))
-        codes.append(Code('SUB', elem.offset))
+        codes.append(Code('SUB', offset))
         codes.append(Code('JPOS', label1))
         codes.append(Code('JZERO', label1))
-        codes.append(Code('LOAD', elem.offset))
+        codes.append(Code('LOAD', offset))
         codes.append(Code('DEC'))
-        codes.append(Code('STORE', elem.offset))
+        codes.append(Code('STORE', offset))
         codes += commands_code
         codes.append(Code('JUMP', label2))
         codes.append(Code('EMPTY', label=label1))
-        return codes, (Cmd.CMD_FOR_DOWN_TO, nest_level, pid, from_value_info, downto_value_info, commands_info)
+        return codes, (Cmd.CMD_FOR_DOWN_TO, nest_level, identifier, from_value_info, downto_value_info, commands_info)
 
     def __cond_neq(self, x):
         codes = []
@@ -851,3 +862,11 @@ class CodeGenerator:
         codes.append(Code('SUB', 5))
         codes.append(Code('JPOS'))
         return codes, (Cmd.COND_LEQ, value0_info, value1_info)
+
+    def __foridentifier(self, x):
+        pidentifier = x
+        elem = self.__sym_tab.get_symbol(pidentifier, is_array=False, errors=False)
+        if elem is None:
+            (elem_code, elem_info) = self.__sym_tab.put_symbol(pidentifier)
+            elem = elem_info
+        return [], ('FORIDENTIFIER', elem.offset)
