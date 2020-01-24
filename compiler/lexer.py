@@ -4,7 +4,6 @@ from sly import Lexer
 class PypilerLexer(Lexer):
     ignore = ' \t'
     ignore_comment = r'(\[)([^\[\]]|\n)*(\])'
-    ignore_newline = r'\n+'
     # noinspection PyUnboundLocalVariable,PyUnresolvedReferences
     tokens = {
         PIDENTIFIER, NUMBER,
@@ -61,6 +60,8 @@ class PypilerLexer(Lexer):
         print(f'Illegal character {t.value[0]}')
         self.index += 1
 
+    # noinspection PyUnresolvedReferences
+    @_(r'\n+')
     def ignore_newline(self, t):
         self.lineno += t.value.count('\n')
 

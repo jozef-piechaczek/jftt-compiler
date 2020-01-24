@@ -5,23 +5,23 @@ from cmd import Cmd
 
 class Errors:
     @staticmethod
-    def declare_err_redefine(name):
-        print(f'WARNING: variable {name} redefined', file=sys.stderr)
+    def declare_err_redefine(name, lineno):
+        print(f'WARNING IN LINE {lineno}: variable {name} redefined', file=sys.stderr)
         # exit(1)
 
     @staticmethod
-    def identifier_not_declared(name):
-        print(f'ERROR: identifier {name} not declared or is an array', file=sys.stderr)
+    def identifier_not_declared(name, lineno):
+        print(f'ERROR IN LINE {lineno}: identifier {name} not declared or is an array', file=sys.stderr)
         exit(2)
 
     @staticmethod
-    def identifier_not_assigned(name):
-        print(f'ERROR: identifier {name} has no value assigned', file=sys.stderr)
+    def identifier_not_assigned(name, lineno):
+        print(f'ERROR IN LINE {lineno}: identifier {name} has no value assigned', file=sys.stderr)
         exit(3)
 
     @staticmethod
-    def incorrect_array_bounds(name, begin, end):
-        print(f'ERROR: incorrect array {name} bounds: {end} < {begin}', file=sys.stderr)
+    def incorrect_array_bounds(name, begin, end, lineno):
+        print(f'ERROR IN LINE {lineno}: incorrect array {name} bounds: {end} < {begin}', file=sys.stderr)
         exit(4)
 
 
@@ -142,9 +142,9 @@ class SymbolTable:
     __data_offset = 100
     __data = []  # [(n0, 1), (n1, 2), (j, 3), (k, 4)]
 
-    def put_symbol(self, name):
+    def put_symbol(self, name, lineno):
         if self.__check_if_exists(name):
-            Errors.declare_err_redefine(name)
+            Errors.declare_err_redefine(name, lineno)
             return [], ()
         else:
             elem = DataElement(name, self.__data_offset, array=False)
@@ -152,9 +152,9 @@ class SymbolTable:
             self.__data_offset += 1
             return [], elem
 
-    def put_array(self, name, begin, end):
+    def put_array(self, name, begin, end, lineno):
         if self.__check_if_exists(name):
-            Errors.declare_err_redefine(name)
+            Errors.declare_err_redefine(name, lineno)
             return [], ()
         else:
             array_dyn = self.__data_offset - begin + 1
@@ -172,64 +172,63 @@ class SymbolTable:
                 return True
         return False
 
-    def get_symbol(self, name, is_array=False, errors=True):
+    def get_symbol(self, name, lineno, is_array=False, errors=True):
         ret = None
         for elem in self.__data:
             if elem.name == name and elem.array == is_array:
                 ret = elem
         if ret is None and errors is True:
-            Errors.identifier_not_declared(name)
+            Errors.identifier_not_declared(name, lineno)
         return ret
 
 
-# noinspection PyMethodMayBeStatic
+# noinspection PyMethodMayBeStatic, PyUnusedLocal
 class CodeGenerator:
     __code_offset = 0
     __sym_tab = SymbolTable()
     __label_maker = LabelMaker()
     __post_processor = PostProcessor()
 
-    def gen_code(self, code, param):
+    def gen_code(self, code, param, lineno):
         return {
-            Cmd.PROG_HALT: lambda x: self.__prog_halt(x),
-            Cmd.PROG_HALT_D: lambda x: self.__prog_halt_d(x),
-            Cmd.DECL_ID: lambda x: self.__declare(x),
-            Cmd.DECL_ARRAY: lambda x: self.__declare_array(x),
-            Cmd.DECL_D_ID: lambda x: self.__declare_d(x),
-            Cmd.DECL_D_ARRAY: lambda x: self.__declare_d_array(x),
-            Cmd.IDENTIFIER: lambda x: self.__identifier(x),
-            Cmd.IDENTIFIER_ARRAY: lambda x: self.__identifier_array(x),
-            Cmd.IDENTIFIER_NEST: lambda x: self.__identifier_nest(x),
-            Cmd.VAL_ID: lambda x: self.__value_identifier(x),
-            Cmd.VAL_NUM: lambda x: self.__value_number(x),
-            Cmd.EXPR_VAL: lambda x: self.__expr_val(x),
-            Cmd.EXPR_PLUS: lambda x: self.__expr_plus(x),
-            Cmd.EXPR_MINUS: lambda x: self.__expr_minus(x),
-            Cmd.EXPR_TIMES: lambda x: self.__expr_times(x),
-            Cmd.EXPR_DIV: lambda x: self.__expr_div(x),
-            Cmd.EXPR_MOD: lambda x: self.__expr_mod(x),
-            Cmd.CMD_ASSIGN: lambda x: self.__cmd_assign(x),
-            Cmd.CMD_WRITE: lambda x: self.__cmd_write(x),
-            Cmd.CMD_READ: lambda x: self.__cmd_read(x),
-            Cmd.CMD_IF: lambda x: self.__cmd_if(x),
-            Cmd.CMD_IF_ELSE: lambda x: self.__cmd_if_else(x),
-            Cmd.CMD_WHILE: lambda x: self.__cmd_while(x),
-            Cmd.CMD_DO_WHILE: lambda x: self.__cmd_do_while(x),
-            Cmd.CMD_FOR_TO: lambda x: self.__cmd_for_to(x),
-            Cmd.CMD_FOR_DOWN_TO: lambda x: self.__cmd_for_down_to(x),
-            Cmd.COND_EQ: lambda x: self.__cond_eq(x),
-            Cmd.COND_NEQ: lambda x: self.__cond_neq(x),
-            Cmd.COND_GE: lambda x: self.__cond_ge(x),
-            Cmd.COND_GEQ: lambda x: self.__cond_geq(x),
-            Cmd.COND_LE: lambda x: self.__cond_le(x),
-            Cmd.COND_LEQ: lambda x: self.__cond_leq(x),
-            Cmd.CMDS_CMDS: lambda x: self.__cmds_cmds(x),
-            Cmd.CMDS_CMD: lambda x: self.__cmds_cmd(x),
-            Cmd.FORIDENTIFIER: lambda x: self.__foridentifier(x),
-        }[code](param)
+            Cmd.PROG_HALT: lambda x, l: self.__prog_halt(x, l),
+            Cmd.PROG_HALT_D: lambda x, l: self.__prog_halt_d(x, l),
+            Cmd.DECL_ID: lambda x, l: self.__declare(x, l),
+            Cmd.DECL_ARRAY: lambda x, l: self.__declare_array(x, l),
+            Cmd.DECL_D_ID: lambda x, l: self.__declare_d(x, l),
+            Cmd.DECL_D_ARRAY: lambda x, l: self.__declare_d_array(x, l),
+            Cmd.IDENTIFIER: lambda x, l: self.__identifier(x, l),
+            Cmd.IDENTIFIER_ARRAY: lambda x, l: self.__identifier_array(x, l),
+            Cmd.IDENTIFIER_NEST: lambda x, l: self.__identifier_nest(x, l),
+            Cmd.VAL_ID: lambda x, l: self.__value_identifier(x),
+            Cmd.VAL_NUM: lambda x, l: self.__value_number(x, l),
+            Cmd.EXPR_VAL: lambda x, l: self.__expr_val(x),
+            Cmd.EXPR_PLUS: lambda x, l: self.__expr_plus(x, l),
+            Cmd.EXPR_MINUS: lambda x, l: self.__expr_minus(x, l),
+            Cmd.EXPR_TIMES: lambda x, l: self.__expr_times(x, l),
+            Cmd.EXPR_DIV: lambda x, l: self.__expr_div(x, l),
+            Cmd.EXPR_MOD: lambda x, l: self.__expr_mod(x, l),
+            Cmd.CMD_ASSIGN: lambda x, l: self.__cmd_assign(x, l),
+            Cmd.CMD_WRITE: lambda x, l: self.__cmd_write(x, l),
+            Cmd.CMD_READ: lambda x, l: self.__cmd_read(x, l),
+            Cmd.CMD_IF: lambda x, l: self.__cmd_if(x, l),
+            Cmd.CMD_IF_ELSE: lambda x, l: self.__cmd_if_else(x, l),
+            Cmd.CMD_WHILE: lambda x, l: self.__cmd_while(x, l),
+            Cmd.CMD_DO_WHILE: lambda x, l: self.__cmd_do_while(x, l),
+            Cmd.CMD_FOR_TO: lambda x, l: self.__cmd_for_to(x, l),
+            Cmd.CMD_FOR_DOWN_TO: lambda x, l: self.__cmd_for_down_to(x, l),
+            Cmd.COND_EQ: lambda x, l: self.__cond_eq(x, l),
+            Cmd.COND_NEQ: lambda x, l: self.__cond_neq(x, l),
+            Cmd.COND_GE: lambda x, l: self.__cond_ge(x, l),
+            Cmd.COND_GEQ: lambda x, l: self.__cond_geq(x, l),
+            Cmd.COND_LE: lambda x, l: self.__cond_le(x, l),
+            Cmd.COND_LEQ: lambda x, l: self.__cond_leq(x, l),
+            Cmd.CMDS_CMDS: lambda x, l: self.__cmds_cmds(x),
+            Cmd.CMDS_CMD: lambda x, l: self.__cmds_cmd(x),
+            Cmd.FORIDENTIFIER: lambda x, l: self.__foridentifier(x, l),
+        }[code](param, lineno)
 
-    # noinspection PyUnusedLocal
-    def __prog_halt(self, x):
+    def __prog_halt(self, x, lineno):
         (x_codes, x_info) = x
         codes = [Code('SUB', 0), Code('INC'), Code('STORE', 1), Code('DEC'), Code('DEC'), Code('STORE', 2)]
         codes += x_codes
@@ -238,7 +237,7 @@ class CodeGenerator:
         string_codes = self.__post_processor.print(codes)
         return string_codes
 
-    def __prog_halt_d(self, x):
+    def __prog_halt_d(self, x, lineno):
         (declarations, commands) = x
         (declarations_code, declarations_info) = declarations
         (commands_code, commands_info) = commands
@@ -250,32 +249,32 @@ class CodeGenerator:
         string_codes = self.__post_processor.print(codes)
         return string_codes
 
-    def __declare(self, x):
-        (codes, elem) = self.__sym_tab.put_symbol(name=x)
+    def __declare(self, x, lineno):
+        (codes, elem) = self.__sym_tab.put_symbol(name=x, lineno=lineno)
         return codes, (Cmd.DECL_ID, elem)
 
-    def __declare_array(self, x):
+    def __declare_array(self, x, lineno):
         codes = []
         (name, begin, end) = x
 
         array_info = None
         if end < begin:
-            Errors.incorrect_array_bounds(name, begin, end)
+            Errors.incorrect_array_bounds(name=name, begin=begin, end=end, lineno=lineno)
         else:
-            (array_codes, array_info) = self.__sym_tab.put_array(name=name, begin=begin, end=end)
+            (array_codes, array_info) = self.__sym_tab.put_array(name=name, begin=begin, end=end, lineno=lineno)
             codes += array_codes
         return codes, (Cmd.DECL_ARRAY, array_info)
 
-    def __declare_d(self, x):
+    def __declare_d(self, x, lineno):
         codes = []
         (declarations, pidentifier) = x
         (declarations_code, declarations_info) = declarations
-        (symbol_codes, symbol_info) = self.__sym_tab.put_symbol(name=pidentifier)
+        (symbol_codes, symbol_info) = self.__sym_tab.put_symbol(name=pidentifier, lineno=lineno)
         codes += declarations_code
         codes += symbol_codes
         return codes, (Cmd.DECL_D_ID, symbol_info, declarations_info)
 
-    def __declare_d_array(self, x):
+    def __declare_d_array(self, x, lineno):
         codes = []
         (declarations, name, begin, end) = x
         (declarations_code, declarations_info) = declarations
@@ -283,26 +282,26 @@ class CodeGenerator:
         array_info = None
         codes += declarations_code
         if end < begin:
-            Errors.incorrect_array_bounds(name, begin, end)
+            Errors.incorrect_array_bounds(name=name, begin=begin, end=end, lineno=lineno)
         else:
-            (array_codes, array_info) = self.__sym_tab.put_array(name=name, begin=begin, end=end)
+            (array_codes, array_info) = self.__sym_tab.put_array(name=name, begin=begin, end=end, lineno=lineno)
             codes += array_codes
         return codes, (Cmd.DECL_D_ARRAY, array_info, declarations_info)
 
-    def __identifier(self, x):
+    def __identifier(self, x, lineno):
         name = x
-        elem = self.__sym_tab.get_symbol(name, is_array=False)
+        elem = self.__sym_tab.get_symbol(name, lineno=lineno, is_array=False)
         return [], ('SYMBOL', elem.offset)
 
-    def __identifier_array(self, x):
+    def __identifier_array(self, x, lineno):
         (name, idx) = x
-        elem = self.__sym_tab.get_symbol(name, is_array=True)
+        elem = self.__sym_tab.get_symbol(name, lineno=lineno, is_array=True)
         return [], ('ARRAY', elem.array_dyn + idx)
 
-    def __identifier_nest(self, x):
+    def __identifier_nest(self, x, lineno):
         (name0, name1) = x
-        elem1 = self.__sym_tab.get_symbol(name1, is_array=False)
-        elem0 = self.__sym_tab.get_symbol(name0, is_array=True)
+        elem1 = self.__sym_tab.get_symbol(name1, lineno=lineno, is_array=False)
+        elem0 = self.__sym_tab.get_symbol(name0, lineno=lineno, is_array=True)
         return [], ('ARRAY_NEST', elem0.offset, elem1.offset)
 
     def __value_identifier(self, x):
@@ -319,7 +318,7 @@ class CodeGenerator:
             raise Exception('incorrect identifier type')
         return codes, (Cmd.VAL_ID, id_info)
 
-    def __value_number(self, x):
+    def __value_number(self, x, lineno):
         codes = Utils.gen_value(x)
         return codes, (Cmd.VAL_NUM, x)
 
@@ -327,7 +326,7 @@ class CodeGenerator:
         (x_codes, x_info) = x
         return x_codes, (Cmd.EXPR_VAL, x_info)
 
-    def __expr_plus(self, x):
+    def __expr_plus(self, x, lineno):
         codes = []
         (value0, value1) = x
         (value0_code, value0_info) = value0
@@ -338,7 +337,7 @@ class CodeGenerator:
         codes.append(Code('ADD', 5))
         return codes, (Cmd.EXPR_PLUS, value0_info, value1_info)
 
-    def __expr_minus(self, x):
+    def __expr_minus(self, x, lineno):
         codes = []
         (value0, value1) = x
         (value0_code, value0_info) = value0
@@ -349,7 +348,7 @@ class CodeGenerator:
         codes.append(Code('SUB', 5))
         return codes, (Cmd.EXPR_MINUS, value0_info, value1_info)
 
-    def __expr_times(self, x):
+    def __expr_times(self, x, lineno):
         codes = []
         (value0, value1) = x
         (value0_code, value0_info) = value0
@@ -385,7 +384,7 @@ class CodeGenerator:
         codes.append(Code('LOAD', 6, label=label1))
         return codes, (Cmd.EXPR_TIMES, value1_info, value1_info)
 
-    def __expr_div(self, x):
+    def __expr_div(self, x, lineno):
         codes = []
         (value0, value1) = x
         (value0_code, value0_info) = value0
@@ -485,7 +484,7 @@ class CodeGenerator:
         codes.append(Code('EMPTY', label=label9))
         return codes, (Cmd.EXPR_DIV, value0_info, value1_info)
 
-    def __expr_mod(self, x):
+    def __expr_mod(self, x, lineno):
         codes = []
         (value0, value1) = x
         (value0_code, value0_info) = value0
@@ -603,7 +602,7 @@ class CodeGenerator:
         codes += command_code
         return codes, [command_info]
 
-    def __cmd_assign(self, x):
+    def __cmd_assign(self, x, lineno):
         codes = []
         (idtf, expr) = x
         (idtf_code, idtf_info) = idtf
@@ -625,7 +624,7 @@ class CodeGenerator:
             raise Exception('incorrect identifier type')
         return codes, (Cmd.CMD_ASSIGN, 0, idtf_info, expr_info)
 
-    def __cmd_read(self, x):
+    def __cmd_read(self, x, lineno):
         codes = []
         (idtf_code, idtf_info) = x
         if idtf_info[0] == 'SYMBOL' or idtf_info[0] == 'ARRAY':
@@ -641,14 +640,14 @@ class CodeGenerator:
             raise Exception('COMPILER_ERROR: incorrect identifier type')
         return codes, (Cmd.CMD_READ, 0, idtf_info)
 
-    def __cmd_write(self, x):
+    def __cmd_write(self, x, lineno):
         codes = []
         (value_codes, value_info) = x
         codes += value_codes
         codes.append(Code('PUT'))
         return codes, (Cmd.CMD_WRITE, 0, value_info)
 
-    def __cmd_if(self, x):
+    def __cmd_if(self, x, lineno):
         codes = []
         (condition, commands) = x
         (condition_codes, condition_info) = condition
@@ -660,7 +659,7 @@ class CodeGenerator:
         codes.append(Code('EMPTY', label=label))
         return codes, (Cmd.CMD_IF, 0, condition_info, commands_info)
 
-    def __cmd_if_else(self, x):
+    def __cmd_if_else(self, x, lineno):
         codes = []
         (condition, commands1, commands2) = x
         (condition_codes, condition_info) = condition
@@ -677,7 +676,7 @@ class CodeGenerator:
         codes.append(Code('EMPTY', label=label2))
         return codes, (Cmd.CMD_IF_ELSE, 0, condition_info, commands1_info, commands2_info)
 
-    def __cmd_while(self, x):
+    def __cmd_while(self, x, lineno):
         codes = []
         (condition, commands) = x
         (condition_codes, condition_info) = condition
@@ -692,7 +691,7 @@ class CodeGenerator:
         codes.append(Code('EMPTY', label=label1))
         return codes, (Cmd.CMD_WHILE, 0, condition_info, commands_info)
 
-    def __cmd_do_while(self, x):
+    def __cmd_do_while(self, x, lineno):
         codes = []
         (commands, condition) = x
         (condition_codes, condition_info) = condition
@@ -708,7 +707,7 @@ class CodeGenerator:
         return codes, (Cmd.CMD_DO_WHILE, 0, condition_info, commands_info)
 
     # **************** CONDITIONS ****************
-    def __cmd_for_to(self, x):
+    def __cmd_for_to(self, x, lineno):
         codes = []
         (identifier, from_value, to_value, commands) = x
 
@@ -746,7 +745,7 @@ class CodeGenerator:
         codes.append(Code('EMPTY', label=label1))
         return codes, (Cmd.CMD_FOR_TO, nest_level, identifier, from_value_info, to_value_info, commands_info)
 
-    def __cmd_for_down_to(self, x):
+    def __cmd_for_down_to(self, x, lineno):
         codes = []
         (identifier, from_value, downto_value, commands) = x
 
@@ -784,7 +783,7 @@ class CodeGenerator:
         codes.append(Code('EMPTY', label=label1))
         return codes, (Cmd.CMD_FOR_DOWN_TO, nest_level, identifier, from_value_info, downto_value_info, commands_info)
 
-    def __cond_neq(self, x):
+    def __cond_neq(self, x, lineno):
         codes = []
         (value0, value1) = x
         (value0_code, value0_info) = value0
@@ -797,7 +796,7 @@ class CodeGenerator:
         codes.append(Code('JZERO'))
         return codes, (Cmd.COND_NEQ, value0_info, value1_info)
 
-    def __cond_eq(self, x):
+    def __cond_eq(self, x, lineno):
         codes = []
         (value0, value1) = x
         (value0_code, value0_info) = value0
@@ -811,7 +810,7 @@ class CodeGenerator:
         codes.append(Code('JNEG'))
         return codes, (Cmd.COND_EQ, value0_info, value1_info)
 
-    def __cond_ge(self, x):
+    def __cond_ge(self, x, lineno):
         codes = []
         (value0, value1) = x
         (value0_code, value0_info) = value0
@@ -825,7 +824,7 @@ class CodeGenerator:
         codes.append(Code('JZERO'))
         return codes, (Cmd.COND_GE, value0_info, value1_info)
 
-    def __cond_geq(self, x):
+    def __cond_geq(self, x, lineno):
         codes = []
         (value0, value1) = x
         (value0_code, value0_info) = value0
@@ -838,7 +837,7 @@ class CodeGenerator:
         codes.append(Code('JNEG'))
         return codes, (Cmd.COND_GEQ, value0_info, value1_info)
 
-    def __cond_le(self, x):
+    def __cond_le(self, x, lineno):
         codes = []
         (value0, value1) = x
         (value0_code, value0_info) = value0
@@ -851,7 +850,7 @@ class CodeGenerator:
         codes.append(Code('JZERO'))
         return codes, (Cmd.COND_LE, value0_info, value1_info)
 
-    def __cond_leq(self, x):
+    def __cond_leq(self, x, lineno):
         codes = []
         (value0, value1) = x
         (value0_code, value0_info) = value0
@@ -863,10 +862,10 @@ class CodeGenerator:
         codes.append(Code('JPOS'))
         return codes, (Cmd.COND_LEQ, value0_info, value1_info)
 
-    def __foridentifier(self, x):
+    def __foridentifier(self, x, lineno):
         pidentifier = x
-        elem = self.__sym_tab.get_symbol(pidentifier, is_array=False, errors=False)
+        elem = self.__sym_tab.get_symbol(pidentifier, lineno=lineno, is_array=False, errors=False)
         if elem is None:
-            (elem_code, elem_info) = self.__sym_tab.put_symbol(pidentifier)
+            (elem_code, elem_info) = self.__sym_tab.put_symbol(pidentifier, lineno=lineno)
             elem = elem_info
         return [], ('FORIDENTIFIER', elem.offset)
