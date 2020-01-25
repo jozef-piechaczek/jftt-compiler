@@ -11,12 +11,12 @@ class Errors:
 
     @staticmethod
     def identifier_not_declared(name, lineno):
-        print(f'ERROR IN LINE {lineno}: identifier {name} not declared or is an array', file=sys.stderr)
+        print(f'ERROR IN LINE {lineno}: identifier {name} not declared or used incorrectly', file=sys.stderr)
         exit(2)
 
     @staticmethod
-    def identifier_not_assigned(name, lineno):
-        print(f'ERROR IN LINE {lineno}: identifier {name} has no value assigned', file=sys.stderr)
+    def identifier_not_assigned(name):
+        print(f'ERROR: identifier {name} has no value assigned', file=sys.stderr)
         exit(3)
 
     @staticmethod
@@ -70,14 +70,19 @@ class Utils:
 
 
 class DataElement:
-    def __init__(self, name, offset, array=False, array_dyn=None):
+    def __init__(self, name, offset, array=False, array_dyn=None, assigned=False):
         self.name = name
         self.offset = offset
         self.array = array
         self.array_dyn = array_dyn
+        self.assigned = assigned
 
     def __str__(self):
         return f'name:{self.name} offset:{self.offset}'
+
+    def check_assigned(self):
+        if self.assigned is False:
+            Errors.identifier_not_assigned(self.name)
 
 
 class Code:
@@ -291,7 +296,7 @@ class CodeGenerator:
     def __identifier(self, x, lineno):
         name = x
         elem = self.__sym_tab.get_symbol(name, lineno=lineno, is_array=False)
-        return [], ('SYMBOL', elem.offset)
+        return [], ('SYMBOL', elem)
 
     def __identifier_array(self, x, lineno):
         (name, idx) = x
@@ -307,7 +312,11 @@ class CodeGenerator:
     def __value_identifier(self, x):
         codes = []
         (id_codes, id_info) = x
-        if id_info[0] == 'SYMBOL' or id_info[0] == 'ARRAY':
+        if id_info[0] == 'SYMBOL':
+            elem = id_info[1]
+            # elem.check_assigned()
+            codes.append(Code('LOAD', elem.offset))
+        elif id_info[0] == 'ARRAY':
             codes.append(Code('LOAD', id_info[1]))
         elif id_info[0] == 'ARRAY_NEST':
             codes.append(Code('LOAD', id_info[1]))
@@ -609,7 +618,12 @@ class CodeGenerator:
         (expr_code, expr_info) = expr
         if expr is None:
             raise Exception('expression not implemented')
-        if idtf_info[0] == 'SYMBOL' or idtf_info[0] == 'ARRAY':
+        if idtf_info[0] == 'SYMBOL':
+            elem = idtf_info[1]
+            elem.assigned = True
+            codes += expr_code
+            codes.append(Code('STORE', elem.offset))
+        elif idtf_info[0] == 'ARRAY':
             codes += expr_code
             codes.append(Code('STORE', idtf_info[1]))
         elif idtf_info[0] == 'ARRAY_NEST':
@@ -627,7 +641,12 @@ class CodeGenerator:
     def __cmd_read(self, x, lineno):
         codes = []
         (idtf_code, idtf_info) = x
-        if idtf_info[0] == 'SYMBOL' or idtf_info[0] == 'ARRAY':
+        if idtf_info[0] == 'SYMBOL':
+            elem = idtf_info[1]
+            elem.assigned = True
+            codes.append(Code('GET'))
+            codes.append(Code('STORE', elem.offset))
+        elif idtf_info[0] == 'ARRAY':
             codes.append(Code('GET'))
             codes.append(Code('STORE', idtf_info[1]))
         elif idtf_info[0] == 'ARRAY_NEST':
@@ -716,7 +735,8 @@ class CodeGenerator:
         (to_value_code, to_value_info) = to_value
         (commands_code, commands_info) = commands
 
-        (_, offset) = identifier_info
+        (_, elem_type, elem) = identifier_info
+        offset = elem.offset
 
         nest_level = 1
         for cmd in commands_info:
@@ -754,7 +774,8 @@ class CodeGenerator:
         (downto_value_code, downto_value_info) = downto_value
         (commands_code, commands_info) = commands
 
-        (_, offset) = identifier_info
+        (_, elem_type, elem) = identifier_info
+        offset = elem.offset
 
         nest_level = 1
         for cmd in commands_info:
@@ -863,9 +884,11 @@ class CodeGenerator:
         return codes, (Cmd.COND_LEQ, value0_info, value1_info)
 
     def __foridentifier(self, x, lineno):
+        elem_type = "EXISTING"
         pidentifier = x
         elem = self.__sym_tab.get_symbol(pidentifier, lineno=lineno, is_array=False, errors=False)
         if elem is None:
             (elem_code, elem_info) = self.__sym_tab.put_symbol(pidentifier, lineno=lineno)
             elem = elem_info
-        return [], ('FORIDENTIFIER', elem.offset)
+            elem_type = "NEW"
+        return [], ('FORIDENTIFIER', elem_type, elem)

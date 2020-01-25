@@ -17,6 +17,4 @@ with open(path_out, "w") as file:
     if codes is not None:
         for code in codes:
             file.write(code + '\n')
-    else:
-        print('WARNING: code printing turned off')
 print(f'Compiled: {path_in}, saved to: {path_out}')
