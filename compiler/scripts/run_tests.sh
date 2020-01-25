@@ -1,6 +1,6 @@
 #!/bin/bash
-RESULTS='../tests/results/'
-VM='../vm/maszyna-wirtualna'
+RESULTS='../../tests/results/'
+VM='../../vm/maszyna-wirtualna'
 CYAN='\033[0;36m'
 NC='\033[0m'
 ${VM} ${RESULTS}'00-div-mod.imp.mr' <<< "33 7"
