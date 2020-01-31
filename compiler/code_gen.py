@@ -145,7 +145,7 @@ class PostProcessor:
 
 class SymbolTable:
     __data_offset = 100
-    __data = []  # [(n0, 1), (n1, 2), (j, 3), (k, 4)]
+    __data = []
 
     def put_symbol(self, name, lineno):
         if self.__check_if_exists(name):
