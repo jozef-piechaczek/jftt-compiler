@@ -247,3 +247,10 @@ class PypilerParser(Parser):
         if self.debug_mode:
             print('foridentifier1')
         return self.gen_code(Cmd.FORIDENTIFIER, t.PIDENTIFIER, t.lineno)
+
+    def error(self, p):
+        if p:
+            print("Syntax error at token", p.type)
+        else:
+            print("Syntax error at EOF")
+        exit(5)
