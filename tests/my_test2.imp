@@ -1,6 +1,6 @@
 DECLARE
     wynik
 BEGIN
-	wynik ASSIGN -12 TIMES -19;
+	wynik ASSIGN -12 TIMES 19;
     WRITE wynik;
 END
