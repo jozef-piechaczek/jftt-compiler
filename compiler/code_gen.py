@@ -432,6 +432,15 @@ class CodeGenerator:
         (value0, value1) = x
         (value0_code, value0_info) = value0
         (value1_code, value1_info) = value1
+
+        #  OPTIMIZE FOR X DIV 2
+        (value0_type, value0_val) = value0_info
+        (value1_type, value1_val) = value1_info
+        if value1_val == 2:
+            codes += value0_code
+            codes.append(Code('SHIFT', 2))
+            return codes, (Cmd.EXPR_DIV, value0_info, value1_info)
+
         label1 = self.__label_maker.get_label()
         label2 = self.__label_maker.get_label()
         label3 = self.__label_maker.get_label()
@@ -532,6 +541,21 @@ class CodeGenerator:
         (value0, value1) = x
         (value0_code, value0_info) = value0
         (value1_code, value1_info) = value1
+
+        #  OPTIMIZE FOR X MOD 2
+        (value0_type, value0_val) = value0_info
+        (value1_type, value1_val) = value1_info
+        if value1_val == 2:
+            codes += value0_code
+            codes.append(Code('STORE', 11))
+            codes.append(Code('SHIFT', 2))
+            codes.append(Code('STORE', 12))
+            codes.append(Code('LOAD', 11))
+            codes.append(Code('INC'))
+            codes.append(Code('SHIFT', 2))
+            codes.append(Code('SUB', 12))
+            return codes, (Cmd.EXPR_MOD, value0_info, value1_info)
+
         label1 = self.__label_maker.get_label()
         label2 = self.__label_maker.get_label()
         label3 = self.__label_maker.get_label()
