@@ -31,5 +31,5 @@ ${VM} ${RESULTS}'program0.imp.mr' <<< "127"
 echo -e "${CYAN}end of p0${NC}"
 ${VM} ${RESULTS}'program1.imp.mr'
 echo -e "${CYAN}end of p1${NC}"
-${VM} ${RESULTS}'program2.imp.mr' <<< "36"
+${VM} ${RESULTS}'program2.imp.mr' <<< "12345678903"
 echo -e "${CYAN}end of p2${NC}"

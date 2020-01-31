@@ -6,8 +6,8 @@ from cmd import Cmd
 class Errors:
     @staticmethod
     def declare_err_redefine(name, lineno):
-        print(f'WARNING IN LINE {lineno}: variable {name} redefined', file=sys.stderr)
-        # exit(1)
+        print(f'ERROR IN LINE {lineno}: variable {name} redefined', file=sys.stderr)
+        exit(1)
 
     @staticmethod
     def identifier_not_declared(name, lineno):
@@ -340,6 +340,15 @@ class CodeGenerator:
         (value0, value1) = x
         (value0_code, value0_info) = value0
         (value1_code, value1_info) = value1
+
+        #  OPTIMIZE FOR X PLUS 1
+        (value0_type, value0_val) = value0_info
+        (value1_type, value1_val) = value1_info
+        if value1_val == 1:
+            codes += value0_code
+            codes.append(Code('INC'))
+            return codes, (Cmd.EXPR_MINUS, value0_info, value1_info)
+
         codes += value1_code
         codes.append(Code('STORE', 5))
         codes += value0_code
@@ -351,6 +360,15 @@ class CodeGenerator:
         (value0, value1) = x
         (value0_code, value0_info) = value0
         (value1_code, value1_info) = value1
+
+        #  OPTIMIZE FOR X MINUS 1
+        (value0_type, value0_val) = value0_info
+        (value1_type, value1_val) = value1_info
+        if value1_val == 1:
+            codes += value0_code
+            codes.append(Code('DEC'))
+            return codes, (Cmd.EXPR_MINUS, value0_info, value1_info)
+
         codes += value1_code
         codes.append(Code('STORE', 5))
         codes += value0_code
@@ -362,6 +380,7 @@ class CodeGenerator:
         (value0, value1) = x
         (value0_code, value0_info) = value0
         (value1_code, value1_info) = value1
+
         label1 = self.__label_maker.get_label()
         label2 = self.__label_maker.get_label()
         label3 = self.__label_maker.get_label()
